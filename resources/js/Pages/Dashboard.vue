@@ -1,9 +1,17 @@
 <script setup>
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, onMounted } from 'vue';
 
 defineProps({
     auth: {
+        type: Object,
+        required: true,
+    },
+    currentlyReading: {
+        type: Array,
+        required: true,
+    },
+    stats: {
         type: Object,
         required: true,
     },
@@ -30,6 +38,15 @@ const toggleTheme = () => {
 const handleLogout = () => {
     router.post('/logout');
 };
+
+const getInitials = (title) => {
+    return title
+        .split(' ')
+        .slice(0, 2)
+        .map(word => word[0])
+        .join('')
+        .toUpperCase();
+};
 </script>
 
 <template>
@@ -40,13 +57,31 @@ const handleLogout = () => {
         <header class="border-b border-slate-200 dark:border-slate-900 bg-white/80 dark:bg-slate-950/80 backdrop-blur sticky top-0 z-40 transition-colors duration-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                 <!-- Brand -->
-                <div class="flex items-center gap-3">
-                    <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                        <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                    </div>
-                    <span class="font-bold text-lg tracking-tight text-slate-900 dark:text-white">BookBuddy</span>
+                <div class="flex items-center gap-6">
+                    <Link href="/dashboard" class="flex items-center gap-3 group">
+                        <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200">
+                            <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                        </div>
+                        <span class="font-bold text-lg tracking-tight text-slate-900 dark:text-white">BookBuddy</span>
+                    </Link>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden sm:flex items-center gap-1">
+                        <Link
+                            href="/dashboard"
+                            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors bg-violet-500/10 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400"
+                        >
+                            Dashboard
+                        </Link>
+                        <Link
+                            href="/books"
+                            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900"
+                        >
+                            My Books
+                        </Link>
+                    </nav>
                 </div>
 
                 <!-- User Profile & Actions -->
@@ -57,11 +92,9 @@ const handleLogout = () => {
                         class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer"
                         aria-label="Toggle theme"
                     >
-                        <!-- Sun Icon (shows in Dark Mode) -->
                         <svg v-if="isDarkMode" class="h-5 w-5 text-amber-400 animate-[spin_8s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.364 17.636l-.707.707M17.636 17.636l-.707-.707M6.364 5.636l-.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <!-- Moon Icon (shows in Light Mode) -->
                         <svg v-else class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                         </svg>
@@ -87,6 +120,22 @@ const handleLogout = () => {
 
         <!-- Page Content -->
         <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Mobile Navigation Links -->
+            <div class="sm:hidden flex gap-2 mb-6">
+                <Link
+                    href="/dashboard"
+                    class="flex-1 text-center py-2 rounded-xl text-xs font-semibold bg-violet-500/10 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400"
+                >
+                    Dashboard
+                </Link>
+                <Link
+                    href="/books"
+                    class="flex-1 text-center py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                >
+                    My Books
+                </Link>
+            </div>
+
             <!-- Welcome Section -->
             <div class="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-900 bg-gradient-to-r from-slate-100 to-indigo-50/30 dark:from-slate-900 dark:to-indigo-950/20 p-8 sm:p-10 mb-8 shadow-xl transition-colors duration-200">
                 <!-- Background decorative glowing shapes -->
@@ -97,21 +146,13 @@ const handleLogout = () => {
                         Welcome back, <span class="text-violet-600 dark:text-violet-400">{{ auth.user.name }}</span>!
                     </h2>
                     <p class="mt-3 text-slate-600 dark:text-slate-400 text-sm sm:text-base leading-relaxed transition-colors duration-200">
-                        This is your BookBuddy dashboard. Track your reading logs, organize your library, review generated chapter summaries, and manage your collection with ease.
+                        Track your reading logs, organize your library, review generated chapter summaries, and manage your collection with ease.
                     </p>
-                    <div class="mt-6 flex flex-wrap gap-3">
-                        <button class="inline-flex items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200 cursor-pointer">
-                            + Add New Book
-                        </button>
-                        <button class="inline-flex items-center justify-center rounded-xl bg-slate-200 dark:bg-slate-900 hover:bg-slate-300 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-200 cursor-pointer">
-                            View Reading History
-                        </button>
-                    </div>
                 </div>
             </div>
 
             <!-- Stats Grid -->
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-10">
                 <!-- Total Books -->
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 backdrop-blur shadow hover:border-slate-300 dark:hover:border-slate-800 transition-colors duration-200">
                     <div class="flex items-center justify-between">
@@ -123,8 +164,8 @@ const handleLogout = () => {
                         </div>
                     </div>
                     <div class="mt-4">
-                        <h3 class="text-2xl font-bold text-slate-900 dark:text-white">12</h3>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-500">3 EPUBs, 9 PDFs</p>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.total_books }}</h3>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-500">In your personal catalog</p>
                     </div>
                 </div>
 
@@ -139,12 +180,12 @@ const handleLogout = () => {
                         </div>
                     </div>
                     <div class="mt-4">
-                        <h3 class="text-2xl font-bold text-slate-900 dark:text-white">48</h3>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-500">Across 8 books</p>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.active_summaries }}</h3>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-500">Generated chapter breakdowns</p>
                     </div>
                 </div>
 
-                <!-- Reading Goals -->
+                <!-- Pages Read -->
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 backdrop-blur shadow hover:border-slate-300 dark:hover:border-slate-800 transition-colors duration-200">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Pages Read</span>
@@ -155,15 +196,15 @@ const handleLogout = () => {
                         </div>
                     </div>
                     <div class="mt-4">
-                        <h3 class="text-2xl font-bold text-slate-900 dark:text-white">1,420</h3>
-                        <p class="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">↑ 12% this week</p>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.pages_read.toLocaleString() }}</h3>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-500">Accumulated progress</p>
                     </div>
                 </div>
 
                 <!-- Completion Rate -->
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 backdrop-blur shadow hover:border-slate-300 dark:hover:border-slate-800 transition-colors duration-200">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Completion Rate</span>
+                        <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Avg Completion</span>
                         <div class="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -171,14 +212,95 @@ const handleLogout = () => {
                         </div>
                     </div>
                     <div class="mt-4">
-                        <h3 class="text-2xl font-bold text-slate-900 dark:text-white">78%</h3>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-500">Average book completion</p>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white">{{ stats.completion_rate }}%</h3>
+                        <div class="mt-2 w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-amber-500 h-full rounded-full transition-all duration-500" :style="{ width: `${stats.completion_rate}%` }"></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Placeholder Section -->
-            <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white/60 dark:bg-slate-900/20 p-8 text-center transition-colors duration-200 shadow-sm">
+            <!-- Currently Reading Section -->
+            <div class="mb-6 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Currently Reading</h2>
+                    <p class="text-xs text-slate-500 mt-1">Your in-progress books, ordered by last activity</p>
+                </div>
+                <Link
+                    href="/books?status=currently_reading"
+                    class="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-500 transition-colors"
+                >
+                    View All Reading →
+                </Link>
+            </div>
+
+            <!-- Books Grid -->
+            <div v-if="currentlyReading.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div
+                    v-for="book in currentlyReading"
+                    :key="book.id"
+                    class="group relative flex flex-col sm:flex-row gap-5 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-5 shadow hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300"
+                >
+                    <!-- Book Cover / Thumbnail -->
+                    <div class="w-full sm:w-28 h-36 rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center">
+                        <img
+                            v-if="book.thumbnail_url"
+                            :src="book.thumbnail_url"
+                            :alt="book.title"
+                            class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div v-else class="flex flex-col items-center justify-center h-full">
+                            <svg class="h-8 w-8 text-white/50 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                            <span class="text-sm font-extrabold text-white leading-tight tracking-wider">{{ getInitials(book.title) }}</span>
+                        </div>
+                        <!-- File Type Badge -->
+                        <span class="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-black/60 text-white backdrop-blur-sm">
+                            {{ book.file_type }}
+                        </span>
+                    </div>
+
+                    <!-- Book Metadata -->
+                    <div class="flex-1 flex flex-col justify-between py-1">
+                        <div>
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="font-bold text-base text-slate-900 dark:text-white leading-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                                    {{ book.title }}
+                                </h3>
+                            </div>
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ book.author || 'Unknown Author' }}</p>
+                        </div>
+
+                        <!-- Progress Section -->
+                        <div class="mt-4 sm:mt-0">
+                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                                <span>Page {{ book.current_page }} of {{ book.total_pages }}</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-300">
+                                    {{ book.total_pages > 0 ? Math.round((book.current_page / book.total_pages) * 100) : 0 }}%
+                                </span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div
+                                    class="bg-gradient-to-r from-violet-600 to-indigo-500 h-full rounded-full transition-all duration-300"
+                                    :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%` }"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- Last Read / Activity -->
+                        <div class="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 mt-3 sm:mt-0">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Last read {{ book.updated_at }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty Placeholder -->
+            <div v-else class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white/60 dark:bg-slate-900/20 p-8 text-center transition-colors duration-200 shadow-sm">
                 <div class="max-w-md mx-auto py-12">
                     <div class="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 mx-auto mb-4 transition-colors duration-200">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -187,8 +309,14 @@ const handleLogout = () => {
                     </div>
                     <h3 class="text-lg font-semibold text-slate-800 dark:text-white">No active reading logs</h3>
                     <p class="mt-2 text-xs text-slate-500 dark:text-slate-500 leading-relaxed">
-                        Add books to your library to generate logs, track your session history, view detailed insights, and access automated summaries.
+                        Go to your catalog and start reading a book to see it featured on your dashboard.
                     </p>
+                    <Link
+                        href="/books"
+                        class="mt-5 inline-flex items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200"
+                    >
+                        Browse All Books
+                    </Link>
                 </div>
             </div>
         </main>
