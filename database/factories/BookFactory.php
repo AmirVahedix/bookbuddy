@@ -3,9 +3,9 @@
 namespace Database\Factories;
 
 use App\Enums\BookFileType;
+use App\Enums\BookReadingStatus;
 use App\Models\Book;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Book>
@@ -40,7 +40,7 @@ class BookFactory extends Factory
             'title' => $book['title'],
             'author' => $book['author'],
             'file_type' => $fileType,
-            'file_path' => 'books/'.Str::slug($book['title']).'.'.$fileType->value,
+            'reading_status' => fake()->randomElement(BookReadingStatus::cases()),
             'total_pages' => $totalPages,
             'current_page' => fake()->numberBetween(0, $totalPages),
         ];

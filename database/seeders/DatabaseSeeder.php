@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\BookFileType;
+use App\Enums\BookReadingStatus;
 use App\Models\Book;
 use App\Models\BookSection;
 use App\Models\Summary;
@@ -31,20 +32,38 @@ class DatabaseSeeder extends Seeder
             'title' => 'Designing Data-Intensive Applications',
             'author' => 'Martin Kleppmann',
             'file_type' => BookFileType::Pdf,
-            'file_path' => 'books/designing-data-intensive-applications.pdf',
+            'reading_status' => BookReadingStatus::CurrentlyReading,
             'total_pages' => 611,
             'current_page' => 45,
         ]);
+
+        // Seed Spatie Media collections for PDF Book
+        $pdfBook->addMediaFromString('%PDF-1.4 mock content')
+            ->usingFileName('designing-data-intensive-applications.pdf')
+            ->toMediaCollection('file');
+
+        $pdfBook->addMediaFromString('mock thumbnail image content')
+            ->usingFileName('ddia-cover.jpg')
+            ->toMediaCollection('thumbnail');
 
         // EPUB Book
         $epubBook = Book::factory()->create([
             'title' => 'Structure and Interpretation of Computer Programs',
             'author' => 'Harold Abelson, Gerald Jay Sussman, Julie Sussman',
             'file_type' => BookFileType::Epub,
-            'file_path' => 'books/sicp.epub',
+            'reading_status' => BookReadingStatus::CurrentlyReading,
             'total_pages' => 657,
             'current_page' => 110,
         ]);
+
+        // Seed Spatie Media collections for EPUB Book
+        $epubBook->addMediaFromString('mock epub zip content')
+            ->usingFileName('sicp.epub')
+            ->toMediaCollection('file');
+
+        $epubBook->addMediaFromString('mock epub thumbnail image content')
+            ->usingFileName('sicp-cover.jpg')
+            ->toMediaCollection('thumbnail');
 
         // 3. Map structural sections for the EPUB book
         $section1 = BookSection::factory()->create([

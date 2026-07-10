@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('title')->index();
             $table->string('author')->nullable();
-            $table->string('file_path');
             $table->string('file_type')->index(); // enum values: pdf, epub
+            $table->string('reading_status')->default('planned_for_future')->index();
             $table->integer('total_pages')->nullable();
             $table->integer('current_page')->default(0);
             $table->timestamps();
