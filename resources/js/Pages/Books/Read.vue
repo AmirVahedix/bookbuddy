@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, shallowRef, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 
 const props = defineProps({
     auth: {
@@ -31,11 +31,13 @@ const isPdfLoading = ref(false);
 const pdfDoc = shallowRef(null);
 const currentPageNum = ref(1);
 const totalPagesNum = ref(0);
-const pdfCanvas = ref(null);
-const renderTask = shallowRef(null);
 const scale = ref(1.2);
 const rotation = ref(0);
 const thumbnails = ref([]);
+const pages = ref([]); // Array of { num, width, height, shouldRender, isVisible, renderStatus }
+
+// Map of active render tasks (non-reactive to avoid Vue Proxy #private member errors)
+const activeRenderTasks = new Map(); // pageNum -> renderTask
 
 // Dynamic PDF.js Loader
 const loadPdfJs = () => {
@@ -69,6 +71,8 @@ const handleKeyDown = (e) => {
     }
 };
 
+let observer = null;
+
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
     isNightReading.value = isDarkMode.value; // Sync night reading to system theme by default
@@ -82,6 +86,17 @@ onMounted(() => {
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeyDown);
     if (progressTimeout) clearTimeout(progressTimeout);
+    if (observer) observer.disconnect();
+    
+    // Cancel any active render tasks
+    activeRenderTasks.forEach((task) => {
+        try {
+            task.cancel();
+        } catch (e) {
+            console.error(e);
+        }
+    });
+    activeRenderTasks.clear();
 });
 
 const initPdf = async () => {
@@ -97,7 +112,35 @@ const initPdf = async () => {
         // Generate list of page numbers for thumbnails tab
         thumbnails.value = Array.from({ length: totalPagesNum.value }, (_, i) => i + 1);
 
-        await renderPage(currentPageNum.value);
+        // Fetch first page viewport as fallback default
+        const firstPage = await pdfDoc.value.getPage(1);
+        const firstViewport = firstPage.getViewport({ scale: 1.0 });
+        const defaultWidth = firstViewport.width;
+        const defaultHeight = firstViewport.height;
+
+        // Initialize pages array with placeholders
+        const tempPages = [];
+        for (let i = 1; i <= totalPagesNum.value; i++) {
+            tempPages.push({
+                num: i,
+                width: defaultWidth,
+                height: defaultHeight,
+                shouldRender: false,
+                isVisible: false,
+                renderStatus: 'idle'
+            });
+        }
+        pages.value = tempPages;
+
+        // Load correct dimensions for remaining pages in the background
+        loadRemainingPageDimensions(defaultWidth, defaultHeight);
+
+        // Wait for DOM to render wrappers, then setup IntersectionObserver
+        await nextTick();
+        setupIntersectionObserver();
+
+        // Initial scroll to the current page without smooth animation
+        goToPage(currentPageNum.value, false);
     } catch (err) {
         console.error('Error loading PDF in reader:', err);
     } finally {
@@ -105,37 +148,160 @@ const initPdf = async () => {
     }
 };
 
-const renderPage = async (pageNum) => {
-    if (!pdfDoc.value || !pdfCanvas.value) return;
-
-    if (renderTask.value) {
-        renderTask.value.cancel();
+const loadRemainingPageDimensions = async (defaultWidth, defaultHeight) => {
+    for (let i = 2; i <= totalPagesNum.value; i++) {
+        try {
+            const page = await pdfDoc.value.getPage(i);
+            const viewport = page.getViewport({ scale: 1.0 });
+            if (pages.value[i - 1]) {
+                pages.value[i - 1].width = viewport.width;
+                pages.value[i - 1].height = viewport.height;
+            }
+        } catch (err) {
+            console.error(`Error loading dimensions for page ${i}:`, err);
+        }
     }
+};
+
+const setupIntersectionObserver = () => {
+    if (observer) {
+        observer.disconnect();
+    }
+
+    const viewport = document.getElementById('pdf-viewport');
+    if (!viewport) return;
+
+    observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const pageNum = parseInt(entry.target.getAttribute('data-page-num'));
+            const page = pages.value.find(p => p.num === pageNum);
+            if (!page) return;
+
+            page.isVisible = entry.isIntersecting;
+        });
+
+        updateVisiblePages();
+    }, {
+        root: viewport,
+        rootMargin: '100% 0px 100% 0px', // Load pages 1 viewport height above/below for smooth scroll preload
+        threshold: 0.01
+    });
+
+    pages.value.forEach(page => {
+        const el = document.getElementById('page-container-' + page.num);
+        if (el) observer.observe(el);
+    });
+};
+
+const updateVisiblePages = () => {
+    const viewport = document.getElementById('pdf-viewport');
+    if (!viewport) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const viewportCenter = viewportRect.top + viewportRect.height / 2;
+
+    let closestPageNum = currentPageNum.value;
+    let minDistance = Infinity;
+
+    pages.value.forEach(page => {
+        const el = document.getElementById('page-container-' + page.num);
+        if (!el) return;
+
+        const rect = el.getBoundingClientRect();
+        const pageCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(viewportCenter - pageCenter);
+
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestPageNum = page.num;
+        }
+    });
+
+    if (closestPageNum !== currentPageNum.value) {
+        currentPageNum.value = closestPageNum;
+        syncProgress(closestPageNum);
+    }
+
+    pages.value.forEach(page => {
+        if (page.isVisible) {
+            if (!page.shouldRender) {
+                page.shouldRender = true;
+                renderPage(page.num);
+            }
+        } else {
+            if (page.shouldRender) {
+                page.shouldRender = false;
+                cancelRenderTask(page);
+            }
+        }
+    });
+};
+
+const renderPage = async (pageNum) => {
+    const pageObj = pages.value.find(p => p.num === pageNum);
+    if (!pageObj || !pdfDoc.value) return;
+
+    // Cancel existing render task for this page
+    const existingTask = activeRenderTasks.get(pageNum);
+    if (existingTask) {
+        existingTask.cancel();
+        activeRenderTasks.delete(pageNum);
+    }
+
+    pageObj.renderStatus = 'rendering';
+
+    await nextTick();
+
+    const canvas = document.getElementById('page-canvas-' + pageNum);
+    if (!canvas) return;
 
     try {
         const page = await pdfDoc.value.getPage(pageNum);
-        
-        // Apply rotation inside viewport
         const viewport = page.getViewport({ scale: scale.value, rotation: rotation.value });
-        const canvas = pdfCanvas.value;
         const context = canvas.getContext('2d');
 
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        // Render at device pixel ratio to solve blurriness
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = viewport.width * dpr;
+        canvas.height = viewport.height * dpr;
 
         const renderContext = {
             canvasContext: context,
             viewport: viewport,
+            transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
         };
 
-        renderTask.value = page.render(renderContext);
-        await renderTask.value.promise;
+        const renderTask = page.render(renderContext);
+        activeRenderTasks.set(pageNum, renderTask);
+
+        await renderTask.promise;
+        pageObj.renderStatus = 'rendered';
     } catch (err) {
         if (err.name !== 'RenderingCancelledException') {
-            console.error('Reader Page render error:', err);
+            console.error(`Page ${pageNum} render error:`, err);
+            pageObj.renderStatus = 'error';
         }
+    } finally {
+        activeRenderTasks.delete(pageNum);
     }
 };
+
+const cancelRenderTask = (page) => {
+    const task = activeRenderTasks.get(page.num);
+    if (task) {
+        task.cancel();
+        activeRenderTasks.delete(page.num);
+    }
+    page.renderStatus = 'idle';
+};
+
+watch([scale, rotation], () => {
+    pages.value.forEach(page => {
+        if (page.shouldRender) {
+            renderPage(page.num);
+        }
+    });
+});
 
 // Progress syncing (throttled/debounced)
 let progressTimeout = null;
@@ -153,49 +319,73 @@ const syncProgress = (page) => {
 
 const changePage = (offset) => {
     const newPage = currentPageNum.value + offset;
-    if (newPage >= 1 && newPage <= totalPagesNum.value) {
-        currentPageNum.value = newPage;
-        renderPage(newPage);
-        syncProgress(newPage);
-    }
+    goToPage(newPage, true);
 };
 
-const goToPage = (page) => {
+const goToPage = (page, smooth = true) => {
     if (page >= 1 && page <= totalPagesNum.value) {
         currentPageNum.value = page;
-        renderPage(page);
+
+        const pageObj = pages.value.find(p => p.num === page);
+        if (pageObj && !pageObj.shouldRender) {
+            pageObj.shouldRender = true;
+            renderPage(page);
+        }
+
+        const el = document.getElementById('page-container-' + page);
+        if (el) {
+            el.scrollIntoView({
+                behavior: smooth ? 'smooth' : 'auto',
+                block: 'start'
+            });
+        }
         syncProgress(page);
     }
 };
 
 const zoom = (factor) => {
     scale.value = Math.min(4.0, Math.max(0.5, scale.value + factor));
-    renderPage(currentPageNum.value);
 };
 
 const fitToWidth = () => {
-    if (!pdfDoc.value || !pdfCanvas.value) return;
-    const containerWidth = pdfCanvas.value.parentElement.clientWidth - 32;
-    pdfDoc.value.getPage(currentPageNum.value).then(page => {
-        const viewport = page.getViewport({ scale: 1.0 });
-        scale.value = containerWidth / viewport.width;
-        renderPage(currentPageNum.value);
-    });
+    if (!pdfDoc.value || pages.value.length === 0) return;
+    const viewportEl = document.getElementById('pdf-viewport');
+    if (!viewportEl) return;
+
+    const containerWidth = viewportEl.clientWidth - 32;
+    const page = pages.value.find(p => p.num === currentPageNum.value) || pages.value[0];
+    scale.value = containerWidth / page.width;
 };
 
 const fitToPage = () => {
-    if (!pdfDoc.value || !pdfCanvas.value) return;
-    const containerHeight = pdfCanvas.value.parentElement.clientHeight - 32;
-    pdfDoc.value.getPage(currentPageNum.value).then(page => {
-        const viewport = page.getViewport({ scale: 1.0 });
-        scale.value = containerHeight / viewport.height;
-        renderPage(currentPageNum.value);
-    });
+    if (!pdfDoc.value || pages.value.length === 0) return;
+    const viewportEl = document.getElementById('pdf-viewport');
+    if (!viewportEl) return;
+
+    const containerHeight = viewportEl.clientHeight - 32;
+    const page = pages.value.find(p => p.num === currentPageNum.value) || pages.value[0];
+    scale.value = containerHeight / page.height;
 };
 
 const rotate = () => {
     rotation.value = (rotation.value + 90) % 360;
-    renderPage(currentPageNum.value);
+};
+
+const getPageContainerStyle = (pageNum) => {
+    const page = pages.value.find(p => p.num === pageNum);
+    if (!page || !page.width) return {};
+
+    const isRotated = (rotation.value / 90) % 2 !== 0;
+    const w = page.width * scale.value;
+    const h = page.height * scale.value;
+
+    const displayWidth = isRotated ? h : w;
+    const displayHeight = isRotated ? w : h;
+
+    return {
+        width: `${displayWidth}px`,
+        height: `${displayHeight}px`,
+    };
 };
 
 // Simple Markdown Renderer
@@ -467,7 +657,7 @@ const formatPages = (targetPages) => {
             </aside>
 
             <!-- PDF Page Viewport Container -->
-            <main class="flex-1 overflow-auto bg-slate-100 dark:bg-slate-950 flex items-start justify-center p-4 relative">
+            <main id="pdf-viewport" class="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-950 flex flex-col items-center gap-6 p-4 relative scroll-smooth">
                 <div v-if="isPdfLoading" class="absolute inset-0 flex items-center justify-center bg-slate-100/70 dark:bg-slate-950/70 z-10">
                     <div class="flex flex-col items-center gap-3">
                         <div class="animate-spin rounded-full h-9 w-9 border-b-2 border-violet-600"></div>
@@ -475,15 +665,30 @@ const formatPages = (targetPages) => {
                     </div>
                 </div>
                 
-                <!-- Main Canvas with class night-contrast filter if selected -->
-                <div class="transition-all duration-200 flex items-center justify-center">
+                <!-- Scrollable Pages List -->
+                <div
+                    v-for="page in pages"
+                    :key="page.num"
+                    :id="'page-container-' + page.num"
+                    :data-page-num="page.num"
+                    class="pdf-page-container relative bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/30 dark:border-slate-800/40 rounded-xl transition-all duration-200 flex items-center justify-center overflow-hidden shrink-0"
+                    :style="getPageContainerStyle(page.num)"
+                >
                     <canvas
-                        ref="pdfCanvas"
-                        class="shadow-2xl bg-white border border-slate-200/30 dark:border-slate-800/40 rounded-xl"
+                        v-if="page.shouldRender"
+                        :id="'page-canvas-' + page.num"
+                        class="w-full h-full animate-fade-in"
                         :style="{
                             filter: isNightReading ? 'invert(1) hue-rotate(180deg)' : 'none'
                         }"
                     ></canvas>
+                    <div v-else class="absolute inset-0 flex items-center justify-center">
+                        <div class="animate-pulse flex space-x-2 items-center">
+                            <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                            <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                            <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
