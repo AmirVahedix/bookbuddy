@@ -44,16 +44,25 @@ def extract_outline(pdf_path):
     total_pages = len(reader.pages)
     for i in range(len(flat_sections)):
         curr_page = flat_sections[i]["page"]
+        curr_level = flat_sections[i]["level"]
         
         # Default end_page is total_pages
         end_page = total_pages
         
-        # Look for the next section that starts on a page > curr_page
+        # Look for the next section that terminates this section.
+        # It must be at the same or higher hierarchical level (i.e. level <= curr_level)
+        # and start on a page >= curr_page.
         for j in range(i + 1, len(flat_sections)):
             next_page = flat_sections[j]["page"]
-            if next_page > curr_page:
-                end_page = next_page - 1
-                break
+            next_level = flat_sections[j]["level"]
+            
+            if next_level <= curr_level:
+                if next_page > curr_page:
+                    end_page = next_page - 1
+                    break
+                elif next_page == curr_page:
+                    end_page = curr_page
+                    break
         
         flat_sections[i]["end_page"] = end_page
 

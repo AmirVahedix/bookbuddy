@@ -474,6 +474,96 @@ const formatPages = (targetPages) => {
     }
     return `Pages ${targetPages.join(',')}`;
 };
+
+// Summarization Feature State
+const isSummarizeMode = ref(false);
+const summarizeStartPage = ref(null);
+const rangeStartPage = ref(null);
+const rangeEndPage = ref(null);
+const isSummarizeModalOpen = ref(false);
+const selectedPredefinedPrompt = ref('');
+const isSubmittingSummary = ref(false);
+
+const predefinedPrompts = [
+    {
+        id: 'executive',
+        name: 'Executive Summary',
+        description: 'Concise, bullet points, actionable insights.',
+        prompt: 'Summarize the key findings and core arguments of these pages in a concise executive style. Use bullet points for readability and focus on actionable insights. The output must be strictly in Markdown format.'
+    },
+    {
+        id: 'synopsis',
+        name: 'Detailed Synopsis',
+        description: 'Comprehensive, methodology, conclusions.',
+        prompt: 'Provide a comprehensive summary of these pages, detailing the methodology, data points, and conclusions. Organize by section headers. The output must be strictly in Markdown format.'
+    },
+    {
+        id: 'eli5',
+        name: 'Simple Explanation (ELI5)',
+        description: 'Explain the concepts in simple, easy-to-understand language. Avoid jargon where possible. The output must be strictly in Markdown format.',
+    },
+    {
+        id: 'analysis',
+        name: 'Critical Analysis',
+        description: 'Analyze the arguments presented. Highlight strengths, weaknesses, and potential biases. The output must be strictly in Markdown format.',
+    }
+];
+
+const toggleSummarizeMode = () => {
+    if (isSummarizeMode.value) {
+        isSummarizeMode.value = false;
+        summarizeStartPage.value = null;
+    } else {
+        isSummarizeMode.value = true;
+        summarizeStartPage.value = currentPageNum.value;
+    }
+};
+
+const handlePageClick = (pageNum) => {
+    if (!isSummarizeMode.value) return;
+    
+    const start = Math.min(summarizeStartPage.value, pageNum);
+    const end = Math.max(summarizeStartPage.value, pageNum);
+    
+    rangeStartPage.value = start;
+    rangeEndPage.value = end;
+    
+    isSummarizeModalOpen.value = true;
+    isSummarizeMode.value = false;
+    
+    selectedPredefinedPrompt.value = predefinedPrompts[0].prompt;
+};
+
+const summarizeSection = (sec) => {
+    rangeStartPage.value = sec.start_page;
+    rangeEndPage.value = sec.end_page || sec.start_page;
+    isSummarizeModalOpen.value = true;
+    isSummarizeMode.value = false;
+    selectedPredefinedPrompt.value = predefinedPrompts[0].prompt;
+};
+
+const submitSummaryRequest = () => {
+    if (!selectedPredefinedPrompt.value) return;
+    
+    isSubmittingSummary.value = true;
+    
+    router.post(`/books/${props.book.id}/summarize`, {
+        start_page: rangeStartPage.value,
+        end_page: rangeEndPage.value,
+        prompt: selectedPredefinedPrompt.value
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isSubmittingSummary.value = false;
+            isSummarizeModalOpen.value = false;
+            summarizeStartPage.value = null;
+        },
+        onError: (errors) => {
+            isSubmittingSummary.value = false;
+            alert(errors.openai || 'An error occurred during summarization.');
+        }
+    });
+};
 </script>
 
 <template>
@@ -588,6 +678,19 @@ const formatPages = (targetPages) => {
                     </svg>
                 </button>
 
+                <!-- Summarize Button -->
+                <button
+                    @click="toggleSummarizeMode"
+                    title="Summarize Pages"
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer"
+                    :class="isSummarizeMode ? 'bg-violet-600 hover:bg-violet-700 text-white border-violet-600' : 'text-slate-700 dark:text-slate-350'"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>{{ isSummarizeMode ? 'Cancel' : 'Summarize' }}</span>
+                </button>
+
                 <div class="h-5 w-[1px] bg-slate-200 dark:bg-slate-800"></div>
 
                 <!-- Close Reader -->
@@ -608,35 +711,15 @@ const formatPages = (targetPages) => {
                 v-show="sidebarOpen"
                 class="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-900 flex flex-col shrink-0 z-30 transition-all duration-300"
             >
-                <!-- Sidebar Tabs Header -->
-                <div class="flex border-b border-slate-100 dark:border-slate-800 p-1 bg-slate-50 dark:bg-slate-900/60 shrink-0">
-                    <button
-                        @click="activeSidebarTab = 'outline'"
-                        class="flex-1 py-2 text-[10px] uppercase font-black rounded-lg transition-colors cursor-pointer"
-                        :class="activeSidebarTab === 'outline' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm border border-slate-100 dark:border-slate-800/40' : 'text-slate-400 hover:text-slate-600'"
-                    >
-                        Outline
-                    </button>
-                    <button
-                        @click="activeSidebarTab = 'thumbnails'"
-                        class="flex-1 py-2 text-[10px] uppercase font-black rounded-lg transition-colors cursor-pointer"
-                        :class="activeSidebarTab === 'thumbnails' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm border border-slate-100 dark:border-slate-800/40' : 'text-slate-400 hover:text-slate-600'"
-                    >
-                        Pages
-                    </button>
-                    <button
-                        @click="activeSidebarTab = 'summaries'"
-                        class="flex-1 py-2 text-[10px] uppercase font-black rounded-lg transition-colors cursor-pointer"
-                        :class="activeSidebarTab === 'summaries' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm border border-slate-100 dark:border-slate-800/40' : 'text-slate-400 hover:text-slate-600'"
-                    >
-                        AI summaries
-                    </button>
+                <!-- Sidebar Header -->
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3 bg-slate-50 dark:bg-slate-900/60 shrink-0">
+                    <span class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider">Outline</span>
                 </div>
 
-                <!-- Sidebar Tab Content -->
+                <!-- Sidebar Content -->
                 <div class="flex-1 overflow-y-auto p-4">
                     <!-- Outline / Table of Contents -->
-                    <div v-show="activeSidebarTab === 'outline'" class="space-y-1">
+                    <div class="space-y-1">
                         <div v-if="visibleSections.length > 0" class="space-y-1">
                             <div
                                 v-for="sec in visibleSections"
@@ -675,65 +758,31 @@ const formatPages = (targetPages) => {
                                     >
                                         {{ sec.title }}
                                     </button>
+                                    
+                                    <div class="flex items-center gap-1 shrink-0">
+                                        <!-- Summarize Section Action -->
+                                        <button
+                                            v-if="sec.start_page"
+                                            @click.stop="summarizeSection(sec)"
+                                            class="opacity-0 group-hover:opacity-100 transition-opacity text-violet-500 hover:text-violet-700 hover:bg-violet-500/10 p-0.5 rounded cursor-pointer"
+                                            title="Summarize this section"
+                                        >
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                        </button>
+
+                                        <span v-if="sec.has_summary" class="mr-2 text-violet-500 hover:text-violet-650 cursor-help flex items-center" title="Section has summary">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div v-else class="text-center py-12 text-xs text-slate-400 dark:text-slate-600">
                             No outline available for this document.
-                        </div>
-                    </div>
-
-                    <!-- Page Numbers Grid (Thumbnails alternate) -->
-                    <div v-show="activeSidebarTab === 'thumbnails'">
-                        <div class="grid grid-cols-3 gap-2">
-                            <button
-                                v-for="page in thumbnails"
-                                :key="page"
-                                @click="goToPage(page)"
-                                class="h-16 rounded-xl border flex flex-col items-center justify-center text-xs font-bold transition-all shadow-sm hover:scale-105 cursor-pointer"
-                                :class="currentPageNum === page
-                                    ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-600/20'
-                                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-violet-500 hover:text-violet-600'"
-                            >
-                                <span>Page</span>
-                                <span class="text-base font-black">{{ page }}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- AI Summaries -->
-                    <div v-show="activeSidebarTab === 'summaries'" class="space-y-4">
-                        <div v-if="props.summaries && props.summaries.length > 0" class="space-y-3">
-                            <div
-                                v-for="summary in props.summaries"
-                                :key="summary.id"
-                                class="rounded-xl border border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 p-3 text-xs"
-                            >
-                                <div class="flex items-start justify-between gap-1.5 mb-1.5">
-                                    <span class="font-black text-slate-800 dark:text-slate-200">
-                                        {{ formatPages(summary.target_pages) }}
-                                    </span>
-                                    <span class="text-[8px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">{{ summary.created_at }}</span>
-                                </div>
-                                
-                                <div class="text-[10px] text-slate-500 dark:text-slate-400 italic line-clamp-1 mb-2">
-                                    "{{ summary.prompt_used }}"
-                                </div>
-
-                                <div v-if="expandedSummaries[summary.id]" class="border-t border-slate-100 dark:border-slate-850 pt-2 text-[10px] leading-relaxed text-slate-600 dark:text-slate-350">
-                                    <div v-html="renderMarkdown(summary.generated_summary)" class="whitespace-pre-wrap"></div>
-                                </div>
-
-                                <button
-                                    @click="toggleSummaryExpand(summary.id)"
-                                    class="w-full mt-1.5 text-center text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 cursor-pointer"
-                                >
-                                    {{ expandedSummaries[summary.id] ? 'Hide' : 'Expand Summary' }}
-                                </button>
-                            </div>
-                        </div>
-                        <div v-else class="text-center py-12 text-xs text-slate-400 dark:text-slate-600">
-                            No AI summaries generated for this book yet.
                         </div>
                     </div>
                 </div>
@@ -747,6 +796,22 @@ const formatPages = (targetPages) => {
                         <span class="text-xs text-slate-500 font-semibold">Preparing reading canvas...</span>
                     </div>
                 </div>
+
+                <!-- Range Selection Mode Helper Banner -->
+                <div v-if="isSummarizeMode" class="sticky top-2 left-0 right-0 z-20 w-full max-w-md mx-auto animate-bounce shrink-0">
+                    <div class="bg-violet-650/95 dark:bg-violet-750/95 text-white backdrop-blur px-5 py-3 rounded-full shadow-2xl border border-violet-550/20 flex items-center justify-between gap-4 text-xs font-semibold animate-fade-in">
+                        <div class="flex items-center gap-2">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span>Summarizing from <strong class="text-emerald-355">Page {{ summarizeStartPage }}</strong>. Click end page.</span>
+                        </div>
+                        <button @click="toggleSummarizeMode" class="text-violet-200 hover:text-white transition-colors cursor-pointer bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full text-[10px]">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
                 
                 <!-- Scrollable Pages List -->
                 <div
@@ -755,7 +820,12 @@ const formatPages = (targetPages) => {
                     :id="'page-container-' + page.num"
                     :data-page-num="page.num"
                     class="pdf-page-container relative bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/30 dark:border-slate-800/40 rounded-xl transition-all duration-200 flex items-center justify-center overflow-hidden shrink-0"
+                    :class="{
+                        'cursor-pointer hover:shadow-violet-550/20 hover:scale-[1.01] hover:border-violet-550/50 transition-all duration-250': isSummarizeMode,
+                        'ring-4 ring-emerald-500 dark:ring-emerald-400 border-emerald-500 scale-[1.01]': isSummarizeMode && page.num === summarizeStartPage
+                    }"
                     :style="getPageContainerStyle(page.num)"
+                    @click="isSummarizeMode && handlePageClick(page.num)"
                 >
                     <canvas
                         v-if="page.shouldRender"
@@ -795,5 +865,126 @@ const formatPages = (targetPages) => {
                 </div>
             </div>
         </footer>
+        <!-- Predefined Prompts Summarize Modal -->
+        <div v-if="isSummarizeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <!-- Modal Backdrop with blur -->
+            <div class="absolute inset-0 bg-slate-900/60 dark:bg-slate-955/80 backdrop-blur-sm transition-all" @click="isSummarizeModalOpen = false"></div>
+            
+            <!-- Modal Container -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden relative z-10 transition-all flex flex-col max-h-[85vh] animate-scale-in animate-fade-in">
+                <!-- Modal Header with gradient style -->
+                <div class="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between shadow-md">
+                    <div>
+                        <h3 class="text-base font-bold flex items-center gap-1.5">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Generate AI Summary
+                        </h3>
+                        <p class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Pages {{ rangeStartPage }} to {{ rangeEndPage }} ({{ rangeEndPage - rangeStartPage + 1 }} pages selected)</p>
+                    </div>
+                    <button @click="isSummarizeModalOpen = false" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1 transition-all cursor-pointer">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Modal Content -->
+                <div class="p-6 overflow-y-auto space-y-4">
+                    <div>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">Select Predefined Style</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div 
+                                v-for="item in predefinedPrompts" 
+                                :key="item.id"
+                                @click="selectedPredefinedPrompt = item.prompt"
+                                class="border p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between"
+                                :class="selectedPredefinedPrompt === item.prompt 
+                                    ? 'bg-violet-500/5 border-violet-500 dark:border-violet-400 shadow-md ring-2 ring-violet-500/10' 
+                                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40'"
+                            >
+                                <div>
+                                    <h4 class="text-xs font-bold" :class="selectedPredefinedPrompt === item.prompt ? 'text-violet-650 dark:text-violet-400' : 'text-slate-800 dark:text-slate-200'">{{ item.name }}</h4>
+                                    <p class="text-[10px] text-slate-450 dark:text-slate-500 mt-1 leading-normal">{{ item.description }}</p>
+                                </div>
+                                <div class="flex justify-end mt-2.5">
+                                    <span class="h-4 w-4 rounded-full border flex items-center justify-center shrink-0"
+                                        :class="selectedPredefinedPrompt === item.prompt ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-300 dark:border-slate-700'"
+                                    >
+                                        <svg v-if="selectedPredefinedPrompt === item.prompt" class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">Prompt Preview & Editor</label>
+                        <textarea
+                            v-model="selectedPredefinedPrompt"
+                            rows="4"
+                            class="w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-mono text-slate-600 dark:text-slate-300 resize-none leading-relaxed"
+                            placeholder="Select a style or write a custom summarization prompt..."
+                        ></textarea>
+                        <p class="text-[9px] text-slate-450 mt-1">Note: Output will be formatted as clean, structured Markdown text.</p>
+                    </div>
+                </div>
+                
+                <!-- Modal Footer -->
+                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200/50 dark:border-slate-800/80 flex items-center justify-end gap-3 shrink-0">
+                    <button 
+                        @click="isSummarizeModalOpen = false"
+                        :disabled="isSubmittingSummary"
+                        class="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        @click="submitSummaryRequest"
+                        :disabled="isSubmittingSummary || !selectedPredefinedPrompt"
+                        class="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-lg shadow-violet-500/10"
+                    >
+                        <svg v-if="isSubmittingSummary" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{{ isSubmittingSummary ? 'Generating Summary...' : 'Generate Summary' }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
+
+<style scoped>
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+</style>

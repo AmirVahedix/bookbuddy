@@ -156,6 +156,21 @@ class OpenAiServiceTest extends TestCase
                 && ($content[1]['source']['media_type'] ?? '') === 'application/pdf'
                 && ($content[1]['source']['data'] ?? '') === $expectedBase64;
         });
+
+        // Test file format
+        $result3 = $service->chatWithPdfs('Summarize this', [$mockPdf], null, 'file');
+        $this->assertEquals('Summary of the PDF.', $result3);
+
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+            $content = $data['messages'][0]['content'] ?? [];
+            $expectedBase64 = base64_encode('fake pdf data');
+
+            return isset($content[1]['type'])
+                && $content[1]['type'] === 'file'
+                && ($content[1]['file']['filename'] ?? '') === 'test.pdf'
+                && ($content[1]['file']['file_data'] ?? '') === "data:application/pdf;base64,{$expectedBase64}";
+        });
     }
 
     /**

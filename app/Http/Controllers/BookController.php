@@ -13,6 +13,8 @@ use App\Services\OpenAiService;
 use App\Services\PdfParserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -210,6 +212,7 @@ class BookController extends Controller
         $transformedBook = $this->transformBook($book);
 
         $sections = $book->sections()
+            ->withCount('summaries')
             ->orderBy('order')
             ->get()
             ->map(fn ($s) => [
@@ -220,6 +223,7 @@ class BookController extends Controller
                 'end_page' => $s->end_page,
                 'level' => $s->level,
                 'order' => $s->order,
+                'has_summary' => $s->summaries_count > 0,
             ]);
 
         $summaries = $book->summaries()
@@ -241,6 +245,50 @@ class BookController extends Controller
             'book' => $transformedBook,
             'sections' => $sections,
             'summaries' => $summaries,
+        ]);
+    }
+
+    /**
+     * Display the standalone summaries reader.
+     */
+    public function summaries(Book $book, ?Summary $summary = null): Response
+    {
+        $book->load('tags');
+
+        $transformedBook = $this->transformBook($book);
+
+        $summaries = $book->summaries()
+            ->with('bookSection')
+            ->get()
+            ->sort(function ($a, $b) {
+                $aPages = $a->target_pages;
+                $bPages = $b->target_pages;
+                $aFirst = (is_array($aPages) && ! empty($aPages)) ? $aPages[0] : 0;
+                $bFirst = (is_array($bPages) && ! empty($bPages)) ? $bPages[0] : 0;
+
+                if ($aFirst !== $bFirst) {
+                    return $aFirst <=> $bFirst;
+                }
+
+                return $a->created_at <=> $b->created_at;
+            })
+            ->values()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'book_section_id' => $s->book_section_id,
+                'section_title' => $s->bookSection?->title,
+                'target_pages' => $s->target_pages,
+                'prompt_used' => $s->prompt_used,
+                'generated_summary' => $s->generated_summary,
+                'tokens_used' => $s->tokens_used,
+                'created_at' => $s->created_at->diffForHumans(),
+                'created_at_date' => $s->created_at->toIso8601String(),
+            ]);
+
+        return Inertia::render('Books/SummaryReader', [
+            'book' => $transformedBook,
+            'summaries' => $summaries,
+            'initialSummaryId' => $summary?->id,
         ]);
     }
 
@@ -300,35 +348,102 @@ class BookController extends Controller
 
         sort($targetPages);
 
+        $bookSectionId = null;
+        if (! empty($targetPages)) {
+            $startPage = $targetPages[0];
+            $section = $book->sections()
+                ->where('start_page', '<=', $startPage)
+                ->where('end_page', '>=', $startPage)
+                ->first();
+
+            if (! $section) {
+                $section = $book->sections()
+                    ->where('start_page', '>=', $startPage)
+                    ->orderBy('start_page')
+                    ->first();
+            }
+
+            if ($section) {
+                $bookSectionId = $section->id;
+            }
+        }
+
         $apiKey = config('services.openai.api_key');
         $generatedSummary = '';
         $tokensUsed = null;
+        $tempPdfPath = null;
+        $pdfPath = $book->getFirstMediaPath('file');
+
+        if (! empty($targetPages) && $pdfPath && file_exists($pdfPath)) {
+            try {
+                $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
+                if (! file_exists($pythonPath)) {
+                    $pythonPath = 'python3';
+                }
+                $scriptPath = base_path('app/Services/pdf_page_extractor.py');
+
+                $tempDir = storage_path('app/tmp');
+                if (! file_exists($tempDir)) {
+                    mkdir($tempDir, 0755, true);
+                }
+                $tempPdfPath = $tempDir.'/'.uniqid('summary_').'.pdf';
+
+                $result = Process::run([
+                    $pythonPath,
+                    $scriptPath,
+                    $pdfPath,
+                    $tempPdfPath,
+                    implode(',', $targetPages),
+                ]);
+
+                if (! $result->successful() || ! file_exists($tempPdfPath)) {
+                    Log::error('PDF page extractor script failed: '.$result->errorOutput());
+                    $tempPdfPath = null;
+                }
+            } catch (\Exception $e) {
+                Log::error('Error extracting PDF pages: '.$e->getMessage());
+                $tempPdfPath = null;
+            }
+        }
 
         if (empty($apiKey)) {
             $pagesStr = implode(', ', $targetPages);
             $generatedSummary = '# Summary for Pages '.($validated['start_page'] && $validated['end_page'] ? "{$validated['start_page']}-{$validated['end_page']}" : $pagesStr)."\n\n".
                 "*(Note: OpenAI API Key was not set in configuration, this is a simulated summary based on your prompt)*\n\n".
-                '## Key Points for prompt: "'.htmlspecialchars($validated['prompt'])."\"\n".
+                "Here is the markdown formatted summary based on your prompt style:\n\n".
+                "## Key Insights\n".
                 "- **Topic Focus**: Summarizing content related to the specified pages.\n".
                 "- **Key Insight**: The document details core concepts in this section, emphasizing architectural design principles, fault tolerance, and scalable data structure patterns.\n".
                 "- **Summary Detail**: Under the requested query, this page range covers structural models, flow parameters, and operational semantics. Applications in this range focus on efficiency and modularity.\n";
             $tokensUsed = 250;
         } else {
             try {
-                $pdfPath = $book->getFirstMediaPath('file');
-                $pagesContext = ! empty($targetPages) ? 'Focus ONLY on pages '.implode(', ', $targetPages).' of the attached PDF document.' : 'Analyze the attached PDF document.';
-                $fullPrompt = "{$pagesContext}\n\nUser request: {$validated['prompt']}";
-
-                $generatedSummary = $this->openAiService->chatWithPdfs($fullPrompt, [$pdfPath]);
+                $pdfToSend = $tempPdfPath ?: $pdfPath;
+                $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached pages (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached PDF document.';
+                $fullPrompt = "{$pagesContext}\n\nUser request: {$validated['prompt']}\n\nIMPORTANT: Please ensure the response is strictly valid Markdown syntax without enclosing it in triple backticks unless required for code snippets.";
+                $generatedSummary = $this->openAiService->chatWithPdfs(
+                    $fullPrompt,
+                    [$pdfToSend],
+                    null,
+                    config('services.openai.pdf_format', 'file')
+                );
                 $tokensUsed = 1200;
             } catch (\Exception $e) {
+                if ($tempPdfPath && file_exists($tempPdfPath)) {
+                    unlink($tempPdfPath);
+                }
+
                 return redirect()->back()->withErrors(['openai' => 'OpenAI Error: '.$e->getMessage()]);
             }
         }
 
+        if ($tempPdfPath && file_exists($tempPdfPath)) {
+            unlink($tempPdfPath);
+        }
+
         Summary::create([
             'book_id' => $book->id,
-            'book_section_id' => null,
+            'book_section_id' => $bookSectionId,
             'target_pages' => $targetPages,
             'prompt_used' => $validated['prompt'],
             'generated_summary' => $generatedSummary,

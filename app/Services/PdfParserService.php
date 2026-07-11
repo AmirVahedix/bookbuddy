@@ -48,15 +48,21 @@ class PdfParserService
 
             $order = 1;
             foreach ($data['sections'] as $section) {
-                BookSection::create([
-                    'book_id' => $book->id,
-                    'title' => mb_substr($section['title'], 0, 250),
-                    'section_identifier' => 'page-'.$section['page'],
-                    'level' => $section['level'],
-                    'start_page' => $section['page'],
-                    'end_page' => $section['end_page'],
-                    'order' => $order++,
-                ]);
+                $sectionIdentifier = 'page-'.$section['page'];
+
+                BookSection::updateOrCreate(
+                    [
+                        'book_id' => $book->id,
+                        'title' => mb_substr($section['title'], 0, 250),
+                        'section_identifier' => $sectionIdentifier,
+                        'level' => $section['level'],
+                        'start_page' => $section['page'],
+                    ],
+                    [
+                        'end_page' => $section['end_page'],
+                        'order' => $order++,
+                    ]
+                );
             }
         } catch (\Exception $e) {
             Log::error('Error parsing and storing PDF sections: '.$e->getMessage());

@@ -121,7 +121,7 @@ class OpenAiService
      */
     public function chatWithPdfs(string $prompt, array $pdfPaths, ?string $model = null, string $format = 'file_url'): string
     {
-        if (! in_array($format, ['file_url', 'document'])) {
+        if (! in_array($format, ['file_url', 'document', 'file'])) {
             throw new InvalidArgumentException("Unsupported PDF payload format: {$format}");
         }
 
@@ -156,13 +156,21 @@ class OpenAiService
                         'url' => "data:application/pdf;base64,{$base64Data}",
                     ],
                 ];
-            } else {
+            } elseif ($format === 'document') {
                 $content[] = [
                     'type' => 'document',
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'application/pdf',
                         'data' => $base64Data,
+                    ],
+                ];
+            } else {
+                $content[] = [
+                    'type' => 'file',
+                    'file' => [
+                        'filename' => basename($path),
+                        'file_data' => "data:application/pdf;base64,{$base64Data}",
                     ],
                 ];
             }

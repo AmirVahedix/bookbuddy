@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\BookReadingStatus;
 use App\Models\Book;
+use App\Models\BookSection;
+use App\Models\Summary;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -372,6 +374,7 @@ class BookControllerTest extends TestCase
 
     public function test_authenticated_user_can_trigger_summarization_with_api_fallback(): void
     {
+        config(['services.openai.api_key' => '']);
         $user = User::factory()->create();
         $book = Book::factory()->create();
 
@@ -386,6 +389,84 @@ class BookControllerTest extends TestCase
             'book_id' => $book->id,
             'prompt_used' => 'Key themes',
         ]);
+    }
+
+    public function test_summarization_correctly_associates_with_overlapping_book_sections(): void
+    {
+        config(['services.openai.api_key' => '']);
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        // Create some sections
+        $section1 = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'start_page' => 1,
+            'end_page' => 10,
+        ]);
+        $section2 = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'start_page' => 11,
+            'end_page' => 20,
+        ]);
+
+        // Summarize page 5 to 12. Since start_page is 5, it falls inside section1.
+        $response = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
+            'start_page' => 5,
+            'end_page' => 12,
+            'prompt' => 'Analyze core concepts',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('summaries', [
+            'book_id' => $book->id,
+            'book_section_id' => $section1->id,
+            'prompt_used' => 'Analyze core concepts',
+        ]);
+
+        // Summarize page 15 to 18. Falls inside section2.
+        $response = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
+            'start_page' => 15,
+            'end_page' => 18,
+            'prompt' => 'Key arguments',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('summaries', [
+            'book_id' => $book->id,
+            'book_section_id' => $section2->id,
+            'prompt_used' => 'Key arguments',
+        ]);
+    }
+
+    public function test_authenticated_user_can_access_summaries_reader_page(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+        $summary = Summary::create([
+            'book_id' => $book->id,
+            'prompt_used' => 'Test prompt',
+            'generated_summary' => 'Test summary content',
+            'target_pages' => [1, 2, 3],
+        ]);
+
+        $response = $this->actingAs($user)->get("/books/{$book->id}/summaries");
+
+        $response->assertStatus(200);
+        $response->assertInertia(function ($page) use ($summary) {
+            $page->component('Books/SummaryReader')
+                ->has('book')
+                ->has('summaries', 1)
+                ->where('summaries.0.id', $summary->id)
+                ->where('initialSummaryId', null);
+        });
+
+        // Test with summary id parameter
+        $responseWithId = $this->actingAs($user)->get("/books/{$book->id}/summaries/{$summary->id}");
+        $responseWithId->assertStatus(200);
+        $responseWithId->assertInertia(function ($page) use ($summary) {
+            $page->component('Books/SummaryReader')
+                ->where('initialSummaryId', $summary->id);
+        });
     }
 
     protected function createMockEpubFile(string $filename, array $htmlFilesContent): UploadedFile
