@@ -357,6 +357,12 @@ const filteredSummaries = computed(() => {
                         >
                             My Books
                         </Link>
+                        <Link
+                            href="/summaries"
+                            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900"
+                        >
+                            Summaries
+                        </Link>
                     </nav>
                 </div>
 
@@ -387,7 +393,7 @@ const filteredSummaries = computed(() => {
         </header>
 
         <!-- Main Body -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-16">
             <!-- Breadcrumbs -->
             <div class="mb-6 flex items-center gap-2 text-xs text-slate-500 font-medium">
                 <Link href="/books" class="hover:text-violet-600 transition-colors">My Books</Link>
@@ -559,14 +565,14 @@ const filteredSummaries = computed(() => {
                                 <button
                                     @click="summarySortBy = 'newest'"
                                     class="px-3 py-1.5 rounded-lg uppercase tracking-wider text-[10px] transition-all cursor-pointer"
-                                    :class="summarySortBy === 'newest' ? 'bg-white dark:bg-slate-800 text-violet-650 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
+                                    :class="summarySortBy === 'newest' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
                                 >
                                     Newest
                                 </button>
                                 <button
                                     @click="summarySortBy = 'pages'"
                                     class="px-3 py-1.5 rounded-lg uppercase tracking-wider text-[10px] transition-all cursor-pointer"
-                                    :class="summarySortBy === 'pages' ? 'bg-white dark:bg-slate-800 text-violet-650 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
+                                    :class="summarySortBy === 'pages' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
                                 >
                                     By Page
                                 </button>
@@ -634,116 +640,6 @@ const filteredSummaries = computed(() => {
                             </p>
                         </div>
                     </div>
-                </div>
-
-                <!-- Right 4 columns: AI Summarizer & Table of Contents -->
-                <div class="lg:col-span-4 flex flex-col gap-8 animate-fade-in">
-                    <!-- LLM Summarization Panel (PDF only) -->
-                    <div v-if="props.book.file_type === 'pdf'" class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow relative overflow-hidden">
-                        <div class="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-violet-600/5 blur-2xl"></div>
-                        
-                        <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2 relative z-10">
-                            <div class="h-6 w-6 rounded bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center">
-                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                            </div>
-                            AI Page Summarizer
-                        </h2>
-
-                        <!-- Inputs -->
-                        <div class="space-y-4 relative z-10">
-                            <!-- Toggle Mode -->
-                            <div class="flex border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden p-0.5 bg-slate-50 dark:bg-slate-900">
-                                <button
-                                    @click="selectionMode = 'range'"
-                                    class="flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer"
-                                    :class="selectionMode === 'range' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
-                                >
-                                    Page Range
-                                </button>
-                                <button
-                                    @click="selectionMode = 'specific'"
-                                    class="flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer"
-                                    :class="selectionMode === 'specific' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
-                                >
-                                    Specific Pages
-                                </button>
-                            </div>
-
-                            <!-- Page selection inputs -->
-                            <div v-if="selectionMode === 'range'" class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Start Page</label>
-                                    <input
-                                        type="number"
-                                        v-model="startPage"
-                                        min="1"
-                                        :max="props.book.total_pages"
-                                        class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-violet-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">End Page</label>
-                                    <input
-                                        type="number"
-                                        v-model="endPage"
-                                        min="1"
-                                        :max="props.book.total_pages"
-                                        class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-violet-500"
-                                    />
-                                </div>
-                            </div>
-                            <div v-else>
-                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Selected Pages (comma separated)</label>
-                                <input
-                                    type="text"
-                                    v-model="selectedPagesInput"
-                                    placeholder="e.g. 1, 3, 5-7"
-                                    class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-violet-500"
-                                />
-                            </div>
-
-                            <!-- Preset prompts -->
-                            <div>
-                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Prompt Presets</label>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <button
-                                        v-for="preset in presets"
-                                        :key="preset.label"
-                                        @click="applyPreset(preset.text)"
-                                        class="px-2 py-1 text-[9px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 hover:border-violet-500/50 hover:bg-violet-500/5 text-slate-550 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all cursor-pointer"
-                                    >
-                                        {{ preset.label }}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Custom Prompt -->
-                            <div>
-                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Custom Prompt Instructions</label>
-                                <textarea
-                                    v-model="customPrompt"
-                                    rows="3"
-                                    placeholder="Instruct the AI on what to focus on..."
-                                    class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-violet-500 resize-none"
-                                ></textarea>
-                            </div>
-
-                            <!-- Summarize Button -->
-                            <button
-                                @click="generateSummary"
-                                :disabled="isSummarizing || !customPrompt"
-                                class="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-violet-600/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                                <span v-if="isSummarizing" class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
-                                <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                {{ isSummarizing ? 'Generating Summary...' : 'Summarize Selection' }}
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- Book Sections / Chapters Table of Contents -->
                     <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
@@ -809,7 +705,7 @@ const filteredSummaries = computed(() => {
                                     <button
                                         v-if="props.book.file_type === 'pdf'"
                                         @click="summarizeSection(sec)"
-                                        class="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-violet-650 hover:bg-violet-750 text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02] flex items-center gap-0.5 shrink-0 font-medium"
+                                        class="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02] flex items-center gap-0.5 shrink-0 font-medium"
                                         title="Summarize Section"
                                     >
                                         <svg class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -825,8 +721,118 @@ const filteredSummaries = computed(() => {
                         </div>
                     </div>
                 </div>
+
+            <!-- Right 4 columns: AI Summarizer -->
+            <div class="lg:col-span-4 flex flex-col gap-8 animate-fade-in">
+                <!-- LLM Summarization Panel (PDF only) -->
+                <div v-if="props.book.file_type === 'pdf'" class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow relative overflow-hidden">
+                    <div class="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-violet-600/5 blur-2xl"></div>
+                    
+                    <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2 relative z-10">
+                        <div class="h-6 w-6 rounded bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center">
+                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        AI Page Summarizer
+                    </h2>
+
+                    <!-- Inputs -->
+                    <div class="space-y-4 relative z-10">
+                        <!-- Toggle Mode -->
+                        <div class="flex border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden p-0.5 bg-slate-50 dark:bg-slate-900">
+                            <button
+                                @click="selectionMode = 'range'"
+                                class="flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer"
+                                :class="selectionMode === 'range' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
+                            >
+                                Page Range
+                            </button>
+                            <button
+                                @click="selectionMode = 'specific'"
+                                class="flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer"
+                                :class="selectionMode === 'specific' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
+                            >
+                                Specific Pages
+                            </button>
+                        </div>
+
+                        <!-- Page selection inputs -->
+                        <div v-if="selectionMode === 'range'" class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Start Page</label>
+                                <input
+                                    type="number"
+                                    v-model="startPage"
+                                    min="1"
+                                    :max="props.book.total_pages"
+                                    class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500"
+                                />
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">End Page</label>
+                                <input
+                                    type="number"
+                                    v-model="endPage"
+                                    min="1"
+                                    :max="props.book.total_pages"
+                                    class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500"
+                                />
+                            </div>
+                        </div>
+                        <div v-else>
+                            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Selected Pages (comma separated)</label>
+                            <input
+                                type="text"
+                                v-model="selectedPagesInput"
+                                placeholder="e.g. 1, 3, 5-7"
+                                class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500"
+                            />
+                        </div>
+
+                        <!-- Preset prompts -->
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Prompt Presets</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button
+                                    v-for="preset in presets"
+                                    :key="preset.label"
+                                    @click="applyPreset(preset.text)"
+                                    class="px-2 py-1 text-[9px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 hover:border-violet-500/50 hover:bg-violet-500/5 text-slate-555 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all cursor-pointer"
+                                >
+                                    {{ preset.label }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Custom Prompt -->
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Custom Prompt Instructions</label>
+                            <textarea
+                                v-model="customPrompt"
+                                rows="3"
+                                placeholder="Instruct the AI on what to focus on..."
+                                class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500 resize-none"
+                            ></textarea>
+                        </div>
+
+                        <!-- Summarize Button -->
+                        <button
+                            @click="generateSummary"
+                            :disabled="isSummarizing || !customPrompt"
+                            class="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-violet-600/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                            <span v-if="isSummarizing" class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                            <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            {{ isSummarizing ? 'Generating Summary...' : 'Summarize Selection' }}
+                        </button>
+                    </div>
+                </div>
             </div>
-        </main>
+        </div>
+    </main>
 
         <!-- Predefined Prompts Summarize Modal -->
         <div v-if="isSummarizeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -868,7 +874,7 @@ const filteredSummaries = computed(() => {
                                     : 'border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40'"
                             >
                                 <div>
-                                    <h4 class="text-xs font-bold" :class="selectedPredefinedPrompt === item.prompt ? 'text-violet-650 dark:text-violet-400' : 'text-slate-800 dark:text-slate-200'">{{ item.name }}</h4>
+                                    <h4 class="text-xs font-bold" :class="selectedPredefinedPrompt === item.prompt ? 'text-violet-600 dark:text-violet-400' : 'text-slate-800 dark:text-slate-200'">{{ item.name }}</h4>
                                     <p class="text-[10px] text-slate-455 dark:text-slate-500 mt-1 leading-normal">{{ item.description }}</p>
                                 </div>
                                 <div class="flex justify-end mt-2.5">
@@ -919,6 +925,39 @@ const filteredSummaries = computed(() => {
                 </div>
             </div>
         </div>
+
+        <!-- Bottom Navigation for Mobile -->
+        <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-900 transition-colors duration-200">
+            <div class="grid grid-cols-3 h-16">
+                <Link
+                    href="/dashboard"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+                    </svg>
+                    <span class="text-[10px] tracking-wide">Dashboard</span>
+                </Link>
+                <Link
+                    href="/books"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span class="text-[10px] tracking-wide">My Books</span>
+                </Link>
+                <Link
+                    href="/summaries"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span class="text-[10px] tracking-wide">Summaries</span>
+                </Link>
+            </div>
+        </nav>
     </div>
 </template>
 

@@ -441,7 +441,7 @@ class BookController extends Controller
             unlink($tempPdfPath);
         }
 
-        Summary::create([
+        $summary = Summary::create([
             'book_id' => $book->id,
             'book_section_id' => $bookSectionId,
             'target_pages' => $targetPages,
@@ -450,6 +450,6 @@ class BookController extends Controller
             'tokens_used' => $tokensUsed,
         ]);
 
-        return redirect()->back();
+        return redirect()->route('books.summaries', [$book, $summary]);
     }
 }
