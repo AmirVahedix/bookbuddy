@@ -249,7 +249,10 @@ const handleImageError = (bookId) => {
                 >
                     <div>
                         <!-- Book Cover and Status Badge -->
-                        <div class="w-full h-44 rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center mb-4">
+                        <Link
+                            :href="'/books/' + book.id"
+                            class="block w-full h-44 rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center mb-4 cursor-pointer"
+                        >
                             <img
                                 v-if="book.thumbnail_url && !brokenImages[book.id]"
                                 :src="book.thumbnail_url"
@@ -276,12 +279,12 @@ const handleImageError = (bookId) => {
                             >
                                 {{ getStatusBadge(book.reading_status).label }}
                             </span>
-                        </div>
+                        </Link>
 
                         <!-- Book Metadata -->
                         <div class="px-1">
                             <h3 class="font-bold text-base text-slate-900 dark:text-white leading-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-2">
-                                {{ book.title }}
+                                <Link :href="'/books/' + book.id">{{ book.title }}</Link>
                             </h3>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ book.author || 'Unknown Author' }}</p>
                             

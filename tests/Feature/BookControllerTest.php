@@ -134,7 +134,27 @@ class BookControllerTest extends TestCase
         Storage::fake('public');
         $user = User::factory()->create();
 
-        $file = UploadedFile::fake()->create('book.epub', 100, 'application/epub+zip');
+        $longTitle = str_repeat('A', 300);
+        $expectedTruncatedTitle = str_repeat('A', 252).'...';
+
+        $htmlFiles = [
+            'text/intro.xhtml' => '<html><head><title>Introduction Page</title></head><body><p>This is page intro with no headings.</p></body></html>',
+            'text/chapter1.xhtml' => '<html><head><title>Chapter 1</title></head><body>'.
+                '<p>Some preamble text that shouldn\'t be orphan.</p>'.
+                '<h1 id="c1-title">Chapter 1 Title</h1>'.
+                '<p>Some content for section 1.</p>'.
+                '<h2 id="c1-sub1">Section 1.1 Subtitle</h2>'.
+                '<p>Some content for section 1.1.</p>'.
+                '<h3 id="c1-subsub1">Subsection 1.1.1</h3>'.
+                '<p>Sub-content</p>'.
+                '<h4>Deep heading</h4>'.
+                '<p>Deep content</p>'.
+                '<h5 id="long-title">'.$longTitle.'</h5>'.
+                '<p>Content under long heading</p>'.
+                '</body></html>',
+        ];
+
+        $file = $this->createMockEpubFile('book.epub', $htmlFiles);
 
         $response = $this->actingAs($user)->post('/books', [
             'title' => 'Test Book 2',
@@ -154,6 +174,52 @@ class BookControllerTest extends TestCase
         $this->assertNotNull($book);
         $this->assertTrue($book->hasMedia('file'));
         $this->assertEquals('book.epub', $book->getFirstMedia('file')->file_name);
+
+        $sections = $book->sections()->orderBy('order')->get();
+
+        $this->assertCount(7, $sections);
+
+        // Section 1: Intro page
+        $this->assertEquals('Introduction Page', $sections[0]->title);
+        $this->assertEquals('text/intro.xhtml', $sections[0]->section_identifier);
+        $this->assertNull($sections[0]->level);
+        $this->assertEquals(1, $sections[0]->order);
+
+        // Section 2: Preamble
+        $this->assertEquals('Chapter 1 (Introduction)', $sections[1]->title);
+        $this->assertEquals('text/chapter1.xhtml', $sections[1]->section_identifier);
+        $this->assertNull($sections[1]->level);
+        $this->assertEquals(2, $sections[1]->order);
+
+        // Section 3: h1
+        $this->assertEquals('Chapter 1 Title', $sections[2]->title);
+        $this->assertEquals('text/chapter1.xhtml#c1-title', $sections[2]->section_identifier);
+        $this->assertEquals(1, $sections[2]->level);
+        $this->assertEquals(3, $sections[2]->order);
+
+        // Section 4: h2
+        $this->assertEquals('Section 1.1 Subtitle', $sections[3]->title);
+        $this->assertEquals('text/chapter1.xhtml#c1-sub1', $sections[3]->section_identifier);
+        $this->assertEquals(2, $sections[3]->level);
+        $this->assertEquals(4, $sections[3]->order);
+
+        // Section 5: h3
+        $this->assertEquals('Subsection 1.1.1', $sections[4]->title);
+        $this->assertEquals('text/chapter1.xhtml#c1-subsub1', $sections[4]->section_identifier);
+        $this->assertEquals(3, $sections[4]->level);
+        $this->assertEquals(5, $sections[4]->order);
+
+        // Section 6: h4
+        $this->assertEquals('Deep heading', $sections[5]->title);
+        $this->assertEquals('text/chapter1.xhtml#h4-3', $sections[5]->section_identifier);
+        $this->assertEquals(4, $sections[5]->level);
+        $this->assertEquals(6, $sections[5]->order);
+
+        // Section 7: h5 (very long heading)
+        $this->assertEquals($expectedTruncatedTitle, $sections[6]->title);
+        $this->assertEquals('text/chapter1.xhtml#long-title', $sections[6]->section_identifier);
+        $this->assertEquals(5, $sections[6]->level);
+        $this->assertEquals(7, $sections[6]->order);
     }
 
     public function test_store_book_requires_title_and_file(): void
@@ -250,5 +316,128 @@ class BookControllerTest extends TestCase
         $this->assertTrue($book->tags->contains('name', 'ExistingTag'));
         $this->assertTrue($book->tags->contains('name', 'BrandNewTag'));
         $this->assertDatabaseHas('tags', ['name' => 'BrandNewTag']);
+    }
+
+    public function test_authenticated_user_can_access_book_show_page(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        $response = $this->actingAs($user)->get("/books/{$book->id}");
+
+        $response->assertStatus(200);
+        $response->assertInertia(function ($page) use ($book) {
+            $page->component('Books/Show')
+                ->where('book.id', $book->id)
+                ->has('sections')
+                ->has('summaries');
+        });
+    }
+
+    public function test_authenticated_user_can_access_standalone_reader_page(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        $response = $this->actingAs($user)->get("/books/{$book->id}/read");
+
+        $response->assertStatus(200);
+        $response->assertInertia(function ($page) use ($book) {
+            $page->component('Books/Read')
+                ->where('book.id', $book->id);
+        });
+    }
+
+    public function test_authenticated_user_can_update_reading_progress(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create([
+            'total_pages' => 200,
+            'current_page' => 10,
+            'reading_status' => BookReadingStatus::CurrentlyReading,
+        ]);
+
+        $response = $this->actingAs($user)->patch("/books/{$book->id}/progress", [
+            'current_page' => 50,
+            'reading_status' => 'currently_reading',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('books', [
+            'id' => $book->id,
+            'current_page' => 50,
+            'reading_status' => 'currently_reading',
+        ]);
+    }
+
+    public function test_authenticated_user_can_trigger_summarization_with_api_fallback(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        $response = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
+            'start_page' => 1,
+            'end_page' => 5,
+            'prompt' => 'Key themes',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('summaries', [
+            'book_id' => $book->id,
+            'prompt_used' => 'Key themes',
+        ]);
+    }
+
+    protected function createMockEpubFile(string $filename, array $htmlFilesContent): UploadedFile
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'epub');
+        $zip = new \ZipArchive;
+        $zip->open($tempFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+        $zip->addFromString('mimetype', 'application/epub+zip');
+
+        $containerXml = '<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>';
+        $zip->addFromString('META-INF/container.xml', $containerXml);
+
+        $manifestItems = '';
+        $spineItems = '';
+        foreach (array_keys($htmlFilesContent) as $index => $href) {
+            $id = 'item_'.$index;
+            $manifestItems .= "<item id=\"{$id}\" href=\"{$href}\" media-type=\"application/xhtml+xml\"/>\n";
+            $spineItems .= "<itemref idref=\"{$id}\"/>\n";
+        }
+
+        $opfContent = '<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Mock Book</dc:title>
+  </metadata>
+  <manifest>
+    '.$manifestItems.'
+  </manifest>
+  <spine>
+    '.$spineItems.'
+  </spine>
+</package>';
+        $zip->addFromString('OEBPS/content.opf', $opfContent);
+
+        foreach ($htmlFilesContent as $href => $content) {
+            $zip->addFromString('OEBPS/'.$href, $content);
+        }
+
+        $zip->close();
+
+        return new UploadedFile(
+            $tempFile,
+            $filename,
+            'application/epub+zip',
+            null,
+            true
+        );
     }
 }

@@ -21,7 +21,7 @@ class StoreBookRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
-            'file' => ['required', 'file', 'mimes:pdf,epub', 'max:51200'],
+            'file' => ['required', 'file', 'mimes:pdf,epub'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['string', 'max:50'],
         ];

@@ -245,7 +245,10 @@ const handleImageError = (bookId) => {
                     class="group relative flex flex-col sm:flex-row gap-5 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-5 shadow hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300"
                 >
                     <!-- Book Cover / Thumbnail -->
-                    <div class="w-full sm:w-28 h-36 rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center">
+                    <Link
+                        :href="'/books/' + book.id"
+                        class="block w-full sm:w-28 h-36 rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center cursor-pointer"
+                    >
                         <img
                             v-if="book.thumbnail_url && !brokenImages[book.id]"
                             :src="book.thumbnail_url"
@@ -263,17 +266,17 @@ const handleImageError = (bookId) => {
                         <span class="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-black/60 text-white backdrop-blur-sm">
                             {{ book.file_type }}
                         </span>
-                    </div>
+                    </Link>
 
                     <!-- Book Metadata -->
-                    <div class="flex-1 flex flex-col justify-between py-1">
+                    <div class="flex-1 min-w-0 flex flex-col justify-between py-1">
                         <div>
                             <div class="flex items-start justify-between gap-2">
-                                <h3 class="font-bold text-base text-slate-900 dark:text-white leading-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                                    {{ book.title }}
+                                <h3 class="font-bold text-base text-slate-900 dark:text-white leading-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-2 break-words">
+                                    <Link :href="'/books/' + book.id" class="block">{{ book.title }}</Link>
                                 </h3>
                             </div>
-                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ book.author || 'Unknown Author' }}</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium truncate">{{ book.author || 'Unknown Author' }}</p>
                         </div>
 
                         <!-- Progress Section -->

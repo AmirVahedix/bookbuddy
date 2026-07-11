@@ -18,5 +18,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/books', [BookController::class, 'index'])->name('books.index');
     Route::get('/books/create', [BookController::class, 'create'])->name('books.create');
     Route::post('/books', [BookController::class, 'store'])->name('books.store');
+    Route::get('/books/{book}', [BookController::class, 'show'])->name('books.show');
+    Route::get('/books/{book}/read', [BookController::class, 'read'])->name('books.read');
+    Route::patch('/books/{book}/progress', [BookController::class, 'updateProgress'])->name('books.update-progress');
+    Route::post('/books/{book}/summarize', [BookController::class, 'summarize'])->name('books.summarize');
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 });
