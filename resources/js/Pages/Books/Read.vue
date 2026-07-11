@@ -26,6 +26,18 @@ const isNightReading = ref(false); // Inverts PDF canvas colors for reading in d
 const sidebarOpen = ref(true);
 const activeSidebarTab = ref('outline'); // 'outline', 'thumbnails', 'summaries'
 
+watch(isNightReading, (val) => {
+    if (val) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        isDarkMode.value = true;
+    } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+        isDarkMode.value = false;
+    }
+});
+
 // Table of Contents Collapsible State
 const expandedSections = ref({});
 
