@@ -7,6 +7,7 @@ use App\Enums\BookReadingStatus;
 use App\Models\Book;
 use App\Models\BookSection;
 use App\Models\Summary;
+use App\Models\Tag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -114,5 +115,33 @@ class BookModelTest extends TestCase
         $this->assertEquals($book->id, $summary->book->id);
         $this->assertEquals($section->id, $summary->bookSection->id);
         $this->assertEquals([12, 13, 14], $summary->target_pages);
+    }
+
+    /**
+     * Test many-to-many relationship with tags.
+     */
+    public function test_book_can_have_many_tags(): void
+    {
+        $book = Book::factory()->create();
+        $tags = Tag::factory()->count(3)->create();
+
+        $book->tags()->attach($tags->pluck('id'));
+
+        $this->assertCount(3, $book->tags);
+        $this->assertEquals($tags->first()->id, $book->tags->first()->id);
+    }
+
+    /**
+     * Test reverse many-to-many relationship from tags to books.
+     */
+    public function test_tag_can_belong_to_many_books(): void
+    {
+        $tag = Tag::factory()->create();
+        $books = Book::factory()->count(2)->create();
+
+        $tag->books()->attach($books->pluck('id'));
+
+        $this->assertCount(2, $tag->books);
+        $this->assertEquals($books->first()->id, $tag->books->first()->id);
     }
 }

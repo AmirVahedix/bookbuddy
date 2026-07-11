@@ -47,6 +47,12 @@ const getInitials = (title) => {
         .join('')
         .toUpperCase();
 };
+
+const brokenImages = ref({});
+
+const handleImageError = (bookId) => {
+    brokenImages.value[bookId] = true;
+};
 </script>
 
 <template>
@@ -119,25 +125,10 @@ const getInitials = (title) => {
         </header>
 
         <!-- Page Content -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Mobile Navigation Links -->
-            <div class="sm:hidden flex gap-2 mb-6">
-                <Link
-                    href="/dashboard"
-                    class="flex-1 text-center py-2 rounded-xl text-xs font-semibold bg-violet-500/10 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400"
-                >
-                    Dashboard
-                </Link>
-                <Link
-                    href="/books"
-                    class="flex-1 text-center py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                >
-                    My Books
-                </Link>
-            </div>
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-8">
 
             <!-- Welcome Section -->
-            <div class="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-900 bg-gradient-to-r from-slate-100 to-indigo-50/30 dark:from-slate-900 dark:to-indigo-950/20 p-8 sm:p-10 mb-8 shadow-xl transition-colors duration-200">
+            <div class="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-900 bg-gradient-to-r from-slate-100 to-indigo-50/30 dark:from-slate-900 dark:to-indigo-950/20 p-8 sm:p-10 mb-8 shadow-xl transition-colors duration-200 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <!-- Background decorative glowing shapes -->
                 <div class="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-violet-600/10 blur-2xl"></div>
                 
@@ -148,6 +139,18 @@ const getInitials = (title) => {
                     <p class="mt-3 text-slate-600 dark:text-slate-400 text-sm sm:text-base leading-relaxed transition-colors duration-200">
                         Track your reading logs, organize your library, review generated chapter summaries, and manage your collection with ease.
                     </p>
+                </div>
+
+                <div class="relative z-10 flex-shrink-0">
+                    <Link
+                        href="/books/create"
+                        class="hidden sm:inline-flex items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-400 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-600/20 hover:shadow-violet-600/30 transition-all duration-200 active:scale-[0.98] cursor-pointer"
+                    >
+                        <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Book
+                    </Link>
                 </div>
             </div>
 
@@ -244,9 +247,10 @@ const getInitials = (title) => {
                     <!-- Book Cover / Thumbnail -->
                     <div class="w-full sm:w-28 h-36 rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center">
                         <img
-                            v-if="book.thumbnail_url"
+                            v-if="book.thumbnail_url && !brokenImages[book.id]"
                             :src="book.thumbnail_url"
                             :alt="book.title"
+                            @error="handleImageError(book.id)"
                             class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div v-else class="flex flex-col items-center justify-center h-full">
@@ -308,17 +312,60 @@ const getInitials = (title) => {
                         </svg>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-800 dark:text-white">No active reading logs</h3>
-                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-500 leading-relaxed">
-                        Go to your catalog and start reading a book to see it featured on your dashboard.
+                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-500 leading-relaxed mb-5">
+                        Go to your catalog and start reading a book, or upload a new book to start reading.
                     </p>
-                    <Link
-                        href="/books"
-                        class="mt-5 inline-flex items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200"
-                    >
-                        Browse All Books
-                    </Link>
+                    <div class="flex items-center justify-center gap-3">
+                        <Link
+                            href="/books"
+                            class="inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 transition-all duration-200 cursor-pointer"
+                        >
+                            Browse Books
+                        </Link>
+                        <Link
+                            href="/books/create"
+                            class="hidden sm:inline-flex items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200 cursor-pointer"
+                        >
+                            Add Book
+                        </Link>
+                    </div>
                 </div>
             </div>
         </main>
+
+        <!-- Floating Action Button for Mobile (Add Book) -->
+        <Link
+            href="/books/create"
+            class="sm:hidden fixed bottom-20 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+            aria-label="Add new book"
+        >
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+        </Link>
+
+        <!-- Bottom Navigation for Mobile -->
+        <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-900 transition-colors duration-200">
+            <div class="grid grid-cols-2 h-16">
+                <Link
+                    href="/dashboard"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-violet-600 dark:text-violet-400 font-semibold"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+                    </svg>
+                    <span class="text-[10px] tracking-wide">Dashboard</span>
+                </Link>
+                <Link
+                    href="/books"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span class="text-[10px] tracking-wide">My Books</span>
+                </Link>
+            </div>
+        </nav>
     </div>
 </template>

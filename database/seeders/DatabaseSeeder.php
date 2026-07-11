@@ -7,6 +7,7 @@ use App\Enums\BookReadingStatus;
 use App\Models\Book;
 use App\Models\BookSection;
 use App\Models\Summary;
+use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -26,6 +27,13 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
+        // Create sample tags
+        $tagProgramming = Tag::firstOrCreate(['name' => 'Programming']);
+        $tagArchitecture = Tag::firstOrCreate(['name' => 'Architecture']);
+        $tagComputerScience = Tag::firstOrCreate(['name' => 'Computer Science']);
+        $tagDatabaseSystems = Tag::firstOrCreate(['name' => 'Database Systems']);
+        $tagSICP = Tag::firstOrCreate(['name' => 'SICP']);
+
         // 2. Attach a couple of sample books
         // PDF Book
         $pdfBook = Book::factory()->create([
@@ -36,6 +44,8 @@ class DatabaseSeeder extends Seeder
             'total_pages' => 611,
             'current_page' => 45,
         ]);
+
+        $pdfBook->tags()->attach([$tagProgramming->id, $tagDatabaseSystems->id, $tagArchitecture->id]);
 
         // Seed Spatie Media collections for PDF Book
         $pdfBook->addMediaFromString('%PDF-1.4 mock content')
@@ -55,6 +65,8 @@ class DatabaseSeeder extends Seeder
             'total_pages' => 657,
             'current_page' => 110,
         ]);
+
+        $epubBook->tags()->attach([$tagProgramming->id, $tagComputerScience->id, $tagSICP->id]);
 
         // Seed Spatie Media collections for EPUB Book
         $epubBook->addMediaFromString('mock epub zip content')
