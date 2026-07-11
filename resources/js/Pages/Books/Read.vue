@@ -26,6 +26,49 @@ const isNightReading = ref(false); // Inverts PDF canvas colors for reading in d
 const sidebarOpen = ref(true);
 const activeSidebarTab = ref('outline'); // 'outline', 'thumbnails', 'summaries'
 
+// Table of Contents Collapsible State
+const expandedSections = ref({});
+
+const hasChildren = (index, sections) => {
+    if (index + 1 >= sections.length) return false;
+    const currentLevel = sections[index].level || 1;
+    const nextLevel = sections[index + 1].level || 1;
+    return nextLevel > currentLevel;
+};
+
+const toggleSection = (secId) => {
+    expandedSections.value[secId] = !expandedSections.value[secId];
+};
+
+const visibleSections = computed(() => {
+    const result = [];
+    let minHiddenLevel = Infinity;
+
+    props.sections.forEach((sec, idx) => {
+        const level = sec.level || 1;
+
+        if (level <= minHiddenLevel) {
+            minHiddenLevel = Infinity;
+        }
+
+        if (level > minHiddenLevel) {
+            return;
+        }
+
+        result.push({
+            ...sec,
+            originalIndex: idx,
+            hasChildren: hasChildren(idx, props.sections),
+        });
+
+        if (hasChildren(idx, props.sections) && !expandedSections.value[sec.id]) {
+            minHiddenLevel = level;
+        }
+    });
+
+    return result;
+});
+
 // PDF.js State
 const isPdfLoading = ref(false);
 const pdfDoc = shallowRef(null);
@@ -582,18 +625,46 @@ const formatPages = (targetPages) => {
                 <div class="flex-1 overflow-y-auto p-4">
                     <!-- Outline / Table of Contents -->
                     <div v-show="activeSidebarTab === 'outline'" class="space-y-1">
-                        <div v-if="props.sections && props.sections.length > 0" class="space-y-1">
-                            <button
-                                v-for="(sec, idx) in props.sections"
+                        <div v-if="visibleSections.length > 0" class="space-y-1">
+                            <div
+                                v-for="sec in visibleSections"
                                 :key="sec.id"
-                                @click="goToPage(sec.start_page)"
-                                class="w-full text-left py-2 px-2.5 text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-850 flex items-center justify-between group transition-all cursor-pointer"
-                                :style="{ paddingLeft: sec.level ? `${sec.level * 10 + 10}px` : '10px' }"
-                                :class="currentPageNum >= sec.start_page && (!props.sections[idx+1] || currentPageNum < props.sections[idx+1].start_page) ? 'text-violet-600 dark:text-violet-400 bg-violet-500/5' : 'text-slate-600 dark:text-slate-400'"
+                                class="w-full flex items-center justify-between group rounded-lg hover:bg-slate-100 dark:hover:bg-slate-850/50 transition-all"
+                                :style="{ paddingLeft: sec.level && sec.level > 1 ? `${(sec.level - 1) * 12 + 6}px` : '6px' }"
+                                :class="currentPageNum >= sec.start_page && (!props.sections[sec.originalIndex+1] || currentPageNum < props.sections[sec.originalIndex+1].start_page) ? 'bg-violet-500/5' : ''"
                             >
-                                <span class="line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400">{{ sec.title }}</span>
-                                <span v-if="sec.start_page" class="text-[9px] font-bold text-slate-400 ml-2">p. {{ sec.start_page }}</span>
-                            </button>
+                                <div class="flex items-center gap-1.5 flex-1 min-w-0 py-1">
+                                    <!-- Chevron Toggle for child sections -->
+                                    <button
+                                        v-if="sec.hasChildren"
+                                        @click.stop="toggleSection(sec.id)"
+                                        class="flex items-center justify-center h-5 w-5 rounded text-slate-400 hover:text-violet-600 hover:bg-violet-500/10 transition-all cursor-pointer shrink-0"
+                                    >
+                                        <svg
+                                            class="h-3 w-3 transform transition-transform duration-200"
+                                            :class="{ 'rotate-90': expandedSections[sec.id] }"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            stroke-width="3"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                    <!-- Bullet for non-expandable sections -->
+                                    <div v-else class="w-5 h-5 shrink-0 flex items-center justify-center">
+                                        <div class="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+                                    </div>
+
+                                    <button
+                                        @click="goToPage(sec.start_page)"
+                                        class="flex-1 text-left text-xs font-semibold select-none cursor-pointer truncate pr-2 py-0.5"
+                                        :class="currentPageNum >= sec.start_page && (!props.sections[sec.originalIndex+1] || currentPageNum < props.sections[sec.originalIndex+1].start_page) ? 'text-violet-600 dark:text-violet-400' : 'text-slate-600 dark:text-slate-400'"
+                                    >
+                                        {{ sec.title }}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div v-else class="text-center py-12 text-xs text-slate-400 dark:text-slate-600">
                             No outline available for this document.

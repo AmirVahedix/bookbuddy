@@ -37,6 +37,49 @@ const customPrompt = ref('');
 const isSummarizing = ref(false);
 const activeSummaryTab = ref('all'); // 'all' or 'ai'
 
+// Table of Contents Collapsible State
+const expandedSections = ref({});
+
+const hasChildren = (index, sections) => {
+    if (index + 1 >= sections.length) return false;
+    const currentLevel = sections[index].level || 1;
+    const nextLevel = sections[index + 1].level || 1;
+    return nextLevel > currentLevel;
+};
+
+const toggleSection = (secId) => {
+    expandedSections.value[secId] = !expandedSections.value[secId];
+};
+
+const visibleSections = computed(() => {
+    const result = [];
+    let minHiddenLevel = Infinity;
+
+    props.sections.forEach((sec, idx) => {
+        const level = sec.level || 1;
+
+        if (level <= minHiddenLevel) {
+            minHiddenLevel = Infinity;
+        }
+
+        if (level > minHiddenLevel) {
+            return;
+        }
+
+        result.push({
+            ...sec,
+            originalIndex: idx,
+            hasChildren: hasChildren(idx, props.sections),
+        });
+
+        if (hasChildren(idx, props.sections) && !expandedSections.value[sec.id]) {
+            minHiddenLevel = level;
+        }
+    });
+
+    return result;
+});
+
 // Progress tracking form
 const progressForm = useForm({
     current_page: props.book.current_page,
@@ -525,17 +568,40 @@ const formatPages = (targetPages) => {
                             Table of Contents
                         </h2>
 
-                        <div v-if="props.sections && props.sections.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[400px] overflow-y-auto pr-1">
+                        <div v-if="visibleSections.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[400px] overflow-y-auto pr-1">
                             <div
-                                v-for="sec in props.sections"
+                                v-for="sec in visibleSections"
                                 :key="sec.id"
-                                class="py-3 flex items-center justify-between group"
-                                :style="{ paddingLeft: sec.level ? `${sec.level * 12}px` : '0px' }"
+                                class="py-3 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 px-2 rounded-xl transition-all duration-150"
+                                :style="{ paddingLeft: sec.level && sec.level > 1 ? `${(sec.level - 1) * 16}px` : '0px' }"
                             >
-                                <div class="flex-1 min-w-0 pr-4">
+                                <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
+                                    <!-- Expand / Collapse Toggle -->
+                                    <button
+                                        v-if="sec.hasChildren"
+                                        @click.stop="toggleSection(sec.id)"
+                                        class="flex items-center justify-center h-6 w-6 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-500/10 transition-all cursor-pointer shrink-0"
+                                    >
+                                        <svg
+                                            class="h-3.5 w-3.5 transform transition-transform duration-200"
+                                            :class="{ 'rotate-90': expandedSections[sec.id] }"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            stroke-width="3"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                    <!-- Spacer for non-expandable sections to align text -->
+                                    <div v-else class="w-6 h-6 shrink-0 flex items-center justify-center">
+                                        <div class="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+                                    </div>
+
                                     <span
-                                        class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
-                                        :class="{ 'font-extrabold text-sm': !sec.level }"
+                                        @click="sec.hasChildren ? toggleSection(sec.id) : null"
+                                        class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium"
+                                        :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'cursor-pointer': sec.hasChildren }"
                                     >
                                         {{ sec.title }}
                                     </span>
