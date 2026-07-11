@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['book_id', 'title', 'section_identifier', 'start_page', 'end_page', 'order'])]
+#[Fillable(['book_id', 'title', 'section_identifier', 'level', 'start_page', 'end_page', 'order'])]
 class BookSection extends Model
 {
     /** @use HasFactory<BookSectionFactory> */
@@ -24,6 +24,7 @@ class BookSection extends Model
     {
         return [
             'book_id' => 'integer',
+            'level' => 'integer',
             'start_page' => 'integer',
             'end_page' => 'integer',
             'order' => 'integer',
