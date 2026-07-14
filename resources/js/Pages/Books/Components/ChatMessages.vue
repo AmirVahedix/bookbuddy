@@ -12,7 +12,9 @@
                 v-for="msg in props.messages"
                 :key="msg.id"
                 class="flex flex-col animate-fade-in"
-                :class="msg.role === 'user' ? 'items-end' : 'items-start'"
+                :class="[
+                    msg.role === 'user' ? 'items-end user-message-container' : 'items-start assistant-message-container'
+                ]"
             >
                 <div class="text-[9px] text-slate-400 dark:text-slate-500 mb-1 px-1 font-semibold">
                     {{ msg.role === 'user' ? 'You' : 'AI Assistant' }}

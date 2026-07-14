@@ -44,6 +44,7 @@ const chatForm = useForm({
 
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
+    adjustScrollPositionForActiveSummary();
 });
 
 const toggleTheme = () => {
@@ -106,6 +107,22 @@ const scrollToBottom = () => {
     });
 };
 
+const adjustScrollPositionForActiveSummary = () => {
+    nextTick(() => {
+        if (!chatMessagesContainer.value) return;
+        const userMessages = chatMessagesContainer.value.querySelectorAll('.user-message-container');
+        if (userMessages.length > 0) {
+            const lastUserMessage = userMessages[userMessages.length - 1];
+            const containerRect = chatMessagesContainer.value.getBoundingClientRect();
+            const messageRect = lastUserMessage.getBoundingClientRect();
+            const relativeOffsetTop = messageRect.top - containerRect.top + chatMessagesContainer.value.scrollTop;
+            chatMessagesContainer.value.scrollTop = Math.max(0, relativeOffsetTop - 20);
+        } else {
+            chatMessagesContainer.value.scrollTop = 0;
+        }
+    });
+};
+
 const sendChatMessage = () => {
     const messageText = chatForm.message.trim();
     if (!messageText || chatForm.processing) return;
@@ -127,7 +144,7 @@ const sendChatMessage = () => {
         },
         onFinish: () => {
             pendingMessages.value = [];
-            scrollToBottom();
+            // Do not automatically scroll down when the response comes back
         },
     });
 };
@@ -135,9 +152,7 @@ const sendChatMessage = () => {
 watch(activeSummaryId, () => {
     chatForm.reset('message');
     pendingMessages.value = [];
-    if (isChatOpen.value) {
-        scrollToBottom();
-    }
+    adjustScrollPositionForActiveSummary();
 });
 </script>
 
@@ -216,6 +231,9 @@ watch(activeSummaryId, () => {
                             />
                         </div>
                     </div>
+
+                    <!-- Decorative Radial Background Glow behind chat input (matched with accent gradient colors) -->
+                    <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-36 bg-gradient-to-r from-violet-300/25 to-indigo-300/25 dark:from-violet-950/20 dark:to-indigo-950/20 blur-[80px] rounded-full pointer-events-none z-30"></div>
 
                     <!-- Floating Glass UI Chat Input Bar -->
                     <ChatInput
