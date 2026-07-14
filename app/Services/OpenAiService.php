@@ -191,6 +191,98 @@ class OpenAiService
     }
 
     /**
+     * Send a full chat conversation with a PDF attached to the first message.
+     *
+     * @param  array<int, array{role: string, content: string}>  $chatHistory
+     * @param  array<int, string>  $pdfPaths
+     * @param  string  $format  The format to send the PDFs ('file_url' or 'document')
+     *
+     * @throws Exception
+     */
+    public function chatConversationWithPdf(
+        string $initialPrompt,
+        array $pdfPaths,
+        array $chatHistory,
+        ?string $model = null,
+        string $format = 'file_url'
+    ): string {
+        if (! in_array($format, ['file_url', 'document', 'file'])) {
+            throw new InvalidArgumentException("Unsupported PDF payload format: {$format}");
+        }
+
+        $firstContent = [
+            [
+                'type' => 'text',
+                'text' => $initialPrompt,
+            ],
+        ];
+
+        foreach ($pdfPaths as $path) {
+            if (! file_exists($path)) {
+                throw new InvalidArgumentException("PDF file not found: {$path}");
+            }
+
+            $mimeType = mime_content_type($path);
+            if ($mimeType !== 'application/pdf') {
+                $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                if ($extension !== 'pdf') {
+                    throw new InvalidArgumentException("File is not a valid PDF: {$path}");
+                }
+                $mimeType = 'application/pdf';
+            }
+
+            $base64Data = base64_encode(file_get_contents($path));
+
+            if ($format === 'file_url') {
+                $firstContent[] = [
+                    'type' => 'file_url',
+                    'file_url' => [
+                        'url' => "data:application/pdf;base64,{$base64Data}",
+                    ],
+                ];
+            } elseif ($format === 'document') {
+                $firstContent[] = [
+                    'type' => 'document',
+                    'source' => [
+                        'type' => 'base64',
+                        'media_type' => 'application/pdf',
+                        'data' => $base64Data,
+                    ],
+                ];
+            } else {
+                $firstContent[] = [
+                    'type' => 'file',
+                    'file' => [
+                        'filename' => basename($path),
+                        'file_data' => "data:application/pdf;base64,{$base64Data}",
+                    ],
+                ];
+            }
+        }
+
+        $messages = [];
+        $messages[] = [
+            'role' => 'user',
+            'content' => $firstContent,
+        ];
+
+        foreach ($chatHistory as $msg) {
+            $messages[] = [
+                'role' => $msg['role'],
+                'content' => $msg['content'],
+            ];
+        }
+
+        $response = $this->request()
+            ->post('/chat/completions', [
+                'model' => $model ?? $this->defaultModel,
+                'messages' => $messages,
+            ]);
+
+        return $this->parseResponse($response);
+    }
+
+    /**
      * Build the HTTP client request instance.
      */
     protected function request(): PendingRequest

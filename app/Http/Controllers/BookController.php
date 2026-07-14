@@ -258,7 +258,7 @@ class BookController extends Controller
         $transformedBook = $this->transformBook($book);
 
         $summaries = $book->summaries()
-            ->with('bookSection')
+            ->with(['bookSection', 'chatMessages'])
             ->get()
             ->sort(function ($a, $b) {
                 $aPages = $a->target_pages;
@@ -283,6 +283,12 @@ class BookController extends Controller
                 'tokens_used' => $s->tokens_used,
                 'created_at' => $s->created_at->diffForHumans(),
                 'created_at_date' => $s->created_at->toIso8601String(),
+                'chat_messages' => $s->chatMessages->map(fn ($msg) => [
+                    'id' => $msg->id,
+                    'role' => $msg->role,
+                    'content' => $msg->content,
+                    'created_at' => $msg->created_at->diffForHumans(),
+                ])->toArray(),
             ]);
 
         return Inertia::render('Books/SummaryReader', [

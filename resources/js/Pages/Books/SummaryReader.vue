@@ -1,6 +1,6 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
-import { ref, computed, onMounted } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 
 const props = defineProps({
     book: {
@@ -27,6 +27,14 @@ const fontSize = ref('base'); // 'sm', 'base', 'lg'
 const fontStyle = ref('serif'); // 'sans', 'serif', 'mono'
 const isPromptExpanded = ref(false);
 const copySuccess = ref(false);
+
+// Chat state
+const isChatOpen = ref(false);
+const chatMessagesContainer = ref(null);
+
+const chatForm = useForm({
+    message: '',
+});
 
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
@@ -134,51 +142,225 @@ const copySummary = () => {
     });
 };
 
+const scrollToBottom = () => {
+    nextTick(() => {
+        if (chatMessagesContainer.value) {
+            chatMessagesContainer.value.scrollTop = chatMessagesContainer.value.scrollHeight;
+        }
+    });
+};
+
+const toggleChat = () => {
+    isChatOpen.value = !isChatOpen.value;
+    if (isChatOpen.value) {
+        scrollToBottom();
+    }
+};
+
+const sendChatMessage = () => {
+    if (!chatForm.message.trim() || chatForm.processing) return;
+
+    chatForm.post(`/summaries/${activeSummary.value.id}/chat`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            chatForm.reset('message');
+            scrollToBottom();
+        },
+    });
+};
+
+const clearChatHistory = () => {
+    if (confirm('Are you sure you want to clear the conversation history?')) {
+        chatForm.delete(`/summaries/${activeSummary.value.id}/chat`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                scrollToBottom();
+            },
+        });
+    }
+};
+
+watch(activeSummaryId, () => {
+    chatForm.reset('message');
+    if (isChatOpen.value) {
+        scrollToBottom();
+    }
+});
+
 // Markdown Renderer
 const renderMarkdown = (text) => {
     if (!text) return '';
-    let html = text
+    
+    // Escape HTML first
+    let escaped = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    
-    // Code blocks
-    html = html.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre class="bg-slate-900 dark:bg-slate-950 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-auto my-4 border border-slate-800/80"><code>$2</code></pre>');
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 text-pink-600 dark:text-pink-400 rounded text-xs font-mono">$1</code>');
-    
-    // Headings
-    html = html.replace(/^### (.*?)$/gm, '<h4 class="text-sm font-bold text-slate-900 dark:text-slate-100 mt-6 mb-2">$1</h4>');
-    html = html.replace(/^## (.*?)$/gm, '<h3 class="text-base font-extrabold text-slate-900 dark:text-white mt-8 mb-3 border-l-3 border-violet-500 pl-3">$1</h3>');
-    html = html.replace(/^# (.*?)$/gm, '<h2 class="text-lg font-black text-violet-650 dark:text-violet-400 mt-10 mb-4 border-b border-slate-200 dark:border-slate-800/80 pb-2">$1</h2>');
-    
-    // Styles
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-950 dark:text-white">$1</strong>');
-    html = html.replace(/\*(.*?)\*(?!\*)/g, '<em class="italic text-slate-655 dark:text-slate-400">$1</em>');
-    html = html.replace(/^&gt; (.*?)$/gm, '<blockquote class="border-l-4 border-slate-350 dark:border-slate-700 pl-4 py-1 my-3 text-slate-500 dark:text-slate-400 italic">$1</blockquote>');
-    
-    // Lists
-    html = html.replace(/^\- (.*?)$/gm, '<li class="ml-5 list-disc text-slate-700 dark:text-slate-300 my-1">$1</li>');
-    html = html.replace(/^\* (.*?)$/gm, '<li class="ml-5 list-disc text-slate-700 dark:text-slate-300 my-1">$1</li>');
-    html = html.replace(/^\d+\.\s+(.*?)$/gm, '<li class="ml-5 list-decimal text-slate-700 dark:text-slate-300 my-1">$1</li>');
-    
-    // Paragraphs
-    const lines = html.split(/\n{2,}/);
-    html = lines.map(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return '';
-        if (
-            trimmed.startsWith('<h') ||
-            trimmed.startsWith('<li') ||
-            trimmed.startsWith('<pre') ||
-            trimmed.startsWith('<blockquote')
-        ) {
-            return line;
-        }
-        return `<p class="my-4 text-slate-700 dark:text-slate-300 leading-relaxed">${line}</p>`;
-    }).join('\n');
 
-    return html;
+    // Code blocks replacement
+    escaped = escaped.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre class="bg-slate-900 dark:bg-slate-955 text-slate-150 p-4 rounded-xl font-mono text-xs overflow-auto my-4 border border-slate-800/80"><code>$2</code></pre>');
+    
+    // Split into lines to process lists, tables, headers, and paragraphs
+    const lines = escaped.split('\n');
+    let htmlResult = [];
+    let inList = false;
+    let listType = ''; // 'ul' or 'ol'
+    let inTable = false;
+    let tableRows = [];
+
+    const closeList = () => {
+        if (inList) {
+            htmlResult.push(`</${listType}>`);
+            inList = false;
+            listType = '';
+        }
+    };
+
+    const closeTable = () => {
+        if (inTable) {
+            // Process the table rows
+            let tableHtml = '<div class="overflow-x-auto my-6 border border-slate-200 dark:border-slate-800 rounded-xl"><table class="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm">';
+            let hasHeader = false;
+            
+            // Check if second row is a separator line like |---|---|
+            let separatorIndex = -1;
+            if (tableRows.length > 1) {
+                const secondRow = tableRows[1].trim();
+                if (/^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)*\|?$/.test(secondRow)) {
+                    separatorIndex = 1;
+                    hasHeader = true;
+                }
+            }
+
+            for (let i = 0; i < tableRows.length; i++) {
+                if (i === separatorIndex) continue; // skip separator row
+                
+                const rowStr = tableRows[i].trim();
+                // strip leading and trailing pipes
+                const cleanRow = rowStr.replace(/^\|/, '').replace(/\|$/, '');
+                const cells = cleanRow.split('|').map(c => c.trim());
+
+                if (hasHeader && i === 0) {
+                    tableHtml += '<thead class="bg-slate-50 dark:bg-slate-900/50"><tr>';
+                    cells.forEach(cell => {
+                        tableHtml += `<th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-350">${cell}</th>`;
+                    });
+                    tableHtml += '</tr></thead><tbody class="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-transparent">';
+                } else {
+                    if (i === 0 || (i === 1 && separatorIndex === -1)) {
+                        tableHtml += '<tbody class="divide-y divide-slate-200 dark:divide-slate-800">';
+                    }
+                    tableHtml += '<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">';
+                    cells.forEach(cell => {
+                        tableHtml += `<td class="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">${cell}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                }
+            }
+            tableHtml += '</tbody></table></div>';
+            htmlResult.push(tableHtml);
+            inTable = false;
+            tableRows = [];
+        }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // 1. Preformatted code blocks that were already replaced in escaped
+        if (trimmed.startsWith('<pre')) {
+            closeList();
+            closeTable();
+            htmlResult.push(line);
+            continue;
+        }
+
+        // 2. Headings
+        if (trimmed.startsWith('#')) {
+            closeList();
+            closeTable();
+            if (trimmed.startsWith('### ')) {
+                htmlResult.push(`<h4 class="text-sm font-bold text-slate-900 dark:text-slate-100 mt-6 mb-2">${trimmed.substring(4)}</h4>`);
+            } else if (trimmed.startsWith('## ')) {
+                htmlResult.push(`<h3 class="text-base font-extrabold text-slate-900 dark:text-white mt-8 mb-3 border-l-3 border-violet-500 pl-3">${trimmed.substring(3)}</h3>`);
+            } else if (trimmed.startsWith('# ')) {
+                htmlResult.push(`<h2 class="text-lg font-black text-violet-650 dark:text-violet-400 mt-10 mb-4 border-b border-slate-205 dark:border-slate-800/80 pb-2">${trimmed.substring(2)}</h2>`);
+            }
+            continue;
+        }
+
+        // 3. Blockquotes
+        if (trimmed.startsWith('&gt;')) {
+            closeList();
+            closeTable();
+            const quoteContent = trimmed.substring(4).trim();
+            htmlResult.push(`<blockquote class="border-l-4 border-slate-350 dark:border-slate-700 pl-4 py-1 my-3 text-slate-500 dark:text-slate-400 italic">${quoteContent}</blockquote>`);
+            continue;
+        }
+
+        // 4. Tables detection
+        if (trimmed.startsWith('|')) {
+            closeList();
+            inTable = true;
+            tableRows.push(line);
+            continue;
+        } else if (inTable && !trimmed.startsWith('|')) {
+            closeTable();
+        }
+
+        // 5. Lists (Unordered and Ordered)
+        const ulMatch = trimmed.match(/^^[\-\*]\s+(.*)$/);
+        const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+
+        if (ulMatch) {
+            closeTable();
+            if (!inList || listType !== 'ul') {
+                closeList();
+                inList = true;
+                listType = 'ul';
+                htmlResult.push('<ul class="my-4 space-y-1">');
+            }
+            htmlResult.push(`<li class="ml-5 list-disc text-slate-700 dark:text-slate-300">${ulMatch[1]}</li>`);
+            continue;
+        } else if (olMatch) {
+            closeTable();
+            if (!inList || listType !== 'ol') {
+                closeList();
+                inList = true;
+                listType = 'ol';
+                htmlResult.push('<ol class="my-4 space-y-1">');
+            }
+            htmlResult.push(`<li class="ml-5 list-decimal text-slate-700 dark:text-slate-300">${olMatch[2]}</li>`);
+            continue;
+        } else if (inList) {
+            closeList();
+        }
+
+        // 6. Blank lines
+        if (trimmed === '') {
+            continue;
+        }
+
+        // 7. Regular paragraph
+        closeList();
+        closeTable();
+        htmlResult.push(`<p class="my-4 text-slate-750 dark:text-slate-300 leading-relaxed">${line}</p>`);
+    }
+
+    // Close any unclosed list/table at the end
+    closeList();
+    closeTable();
+
+    let finalHtml = htmlResult.join('\n');
+
+    // Inline formatting: Bold, Italic, Code
+    finalHtml = finalHtml
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-950 dark:text-white">$1</strong>')
+        .replace(/\*(.*?)\*(?!\*)/g, '<em class="italic text-slate-655 dark:text-slate-400">$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 text-pink-650 dark:text-pink-400 rounded text-xs font-mono">$1</code>');
+
+    return finalHtml;
 };
 </script>
 
@@ -376,118 +558,254 @@ const renderMarkdown = (text) => {
                             </div>
                         </div>
 
-                        <!-- Copy summary button -->
-                        <button
-                            @click="copySummary"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-slate-350 dark:border-slate-800 dark:hover:border-slate-700 text-xs font-bold text-slate-655 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors cursor-pointer"
-                        >
-                            <svg v-if="copySuccess" class="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                            </svg>
-                            <span>{{ copySuccess ? 'Copied!' : 'Copy Markdown' }}</span>
-                        </button>
+                        <!-- Actions container -->
+                        <div class="flex items-center gap-2">
+                            <!-- Copy summary button -->
+                            <button
+                                @click="copySummary"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-slate-350 dark:border-slate-800 dark:hover:border-slate-700 text-xs font-bold text-slate-655 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors cursor-pointer"
+                            >
+                                <svg v-if="copySuccess" class="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                </svg>
+                                <span>{{ copySuccess ? 'Copied!' : 'Copy Markdown' }}</span>
+                            </button>
+
+                            <!-- Toggle AI Chat Button -->
+                            <button
+                                @click="toggleChat"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer"
+                                :class="isChatOpen
+                                    ? 'bg-violet-600 border-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/10'
+                                    : 'border-slate-205 hover:border-slate-350 dark:border-slate-800 dark:hover:border-slate-700 text-slate-655 dark:text-slate-400 hover:text-slate-905 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-850'"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <span>AI Assistant</span>
+                                <span v-if="activeSummary?.chat_messages?.length" class="inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-black leading-none rounded-full" :class="isChatOpen ? 'bg-violet-200 text-violet-855' : 'bg-violet-100 text-violet-750 dark:bg-violet-950 dark:text-violet-405'">
+                                    {{ activeSummary.chat_messages.length }}
+                                </span>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Scrollable Reader Workspace -->
-                    <div class="flex-1 overflow-y-auto px-6 py-8 md:px-12 md:py-12 pb-24 sm:pb-12">
-                        <div class="max-w-2xl mx-auto space-y-6">
-                            <!-- Header metadata -->
-                            <div class="border-b border-slate-100 dark:border-slate-800 pb-5">
-                                <div class="flex flex-wrap items-center gap-2 mb-3">
-                                    <span class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
-                                        {{ formatPages(activeSummary.target_pages) }}
-                                    </span>
-                                    <span v-if="activeSummary.section_title" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/20">
-                                        {{ activeSummary.section_title }}
-                                    </span>
-                                    <span class="text-xs text-slate-400 font-medium ml-auto flex items-center gap-1.5 shrink-0">
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
-                                        {{ readingTime }} min read
-                                    </span>
+                    <!-- Split Workspace: Reading & AI Chat -->
+                    <div class="flex-1 flex overflow-hidden min-h-0 relative">
+                        <!-- Scrollable Reader Workspace (Center) -->
+                        <div class="flex-1 overflow-y-auto px-6 py-8 md:px-12 md:py-12 pb-24 sm:pb-12">
+                            <div class="max-w-2xl mx-auto space-y-6">
+                                <!-- Header metadata -->
+                                <div class="border-b border-slate-100 dark:border-slate-800 pb-5">
+                                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                                        <span class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
+                                            {{ formatPages(activeSummary.target_pages) }}
+                                        </span>
+                                        <span v-if="activeSummary.section_title" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/20">
+                                            {{ activeSummary.section_title }}
+                                        </span>
+                                        <span class="text-xs text-slate-400 font-medium ml-auto flex items-center gap-1.5 shrink-0">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                            </svg>
+                                            {{ readingTime }} min read
+                                        </span>
+                                    </div>
+
+                                    <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                                        Summary of {{ formatPages(activeSummary.target_pages) }}
+                                    </h2>
+                                    <p class="text-xs text-slate-450 mt-2 font-medium">Generated {{ activeSummary.created_at }}</p>
                                 </div>
 
-                                <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                                    Summary of {{ formatPages(activeSummary.target_pages) }}
-                                </h2>
-                                <p class="text-xs text-slate-450 mt-2 font-medium">Generated {{ activeSummary.created_at }}</p>
+                                <!-- Collapsible prompt accordion -->
+                                <div class="rounded-2xl border border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden">
+                                    <button
+                                        @click="isPromptExpanded = !isPromptExpanded"
+                                        class="w-full px-4 py-3 flex items-center justify-between text-left cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/30"
+                                    >
+                                        <span class="text-xs font-bold text-slate-655 dark:text-slate-400 flex items-center gap-1.5">
+                                            <svg class="h-3.5 w-3.5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Prompt Instruction Used
+                                        </span>
+                                        <svg
+                                            class="h-4 w-4 transform transition-transform duration-200 text-slate-400"
+                                            :class="{ 'rotate-180': isPromptExpanded }"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    <div v-if="isPromptExpanded" class="px-4 pb-4 border-t border-slate-150 dark:border-slate-800/80 pt-3">
+                                        <p class="text-xs font-mono italic text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
+                                            "{{ activeSummary.prompt_used }}"
+                                        </p>
+                                        <div class="mt-3 flex items-center justify-between text-[10px] text-slate-400">
+                                            <span>Tokens used: {{ activeSummary.tokens_used || '?' }}</span>
+                                            <span>ID: #{{ activeSummary.id }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Markdown reading pane -->
+                                <article
+                                    class="prose dark:prose-invert max-w-none transition-all duration-200"
+                                    :class="[
+                                        fontSize === 'sm' ? 'text-xs md:text-sm' : fontSize === 'lg' ? 'text-base md:text-lg' : 'text-sm md:text-base',
+                                        fontStyle === 'serif' ? 'font-serif tracking-normal leading-relaxed' : fontStyle === 'mono' ? 'font-mono text-xs leading-normal' : 'font-sans tracking-wide leading-relaxed'
+                                    ]"
+                                    v-html="renderMarkdown(activeSummary.generated_summary)"
+                                ></article>
+
+                                <!-- Navigation between summaries -->
+                                <div class="border-t border-slate-100 dark:border-slate-800 pt-8 mt-12 flex items-center justify-between gap-4">
+                                    <button
+                                        @click="goToPrevious"
+                                        :disabled="activeFilteredIndex <= 0"
+                                        class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-205 dark:border-slate-805 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-white transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                                    >
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        Prev Summary
+                                    </button>
+
+                                    <span class="text-xs text-slate-450 font-bold">
+                                        {{ activeFilteredIndex + 1 }} / {{ filteredSummaries.length }}
+                                    </span>
+
+                                    <button
+                                        @click="goToNext"
+                                        :disabled="activeFilteredIndex >= filteredSummaries.length - 1"
+                                        class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-205 dark:border-slate-805 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-white transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                                    >
+                                        Next Summary
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Chat Panel (Right) -->
+                        <div v-if="isChatOpen" class="w-full lg:w-96 border-l border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 flex flex-col shrink-0 overflow-hidden h-full">
+                            <!-- Panel Header -->
+                            <div class="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-950/80">
+                                <div class="flex items-center gap-2">
+                                    <svg class="h-4 w-4 text-violet-550" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    <span class="text-xs font-black text-slate-800 dark:text-slate-200">AI Chat Assistant</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <!-- Clear Chat Button -->
+                                    <button
+                                        v-if="activeSummary?.chat_messages?.length"
+                                        @click="clearChatHistory"
+                                        class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                                        title="Clear chat history"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                    <!-- Close Button -->
+                                    <button
+                                        @click="isChatOpen = false"
+                                        class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                                        title="Close panel"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
 
-                            <!-- Collapsible prompt accordion -->
-                            <div class="rounded-2xl border border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden">
-                                <button
-                                    @click="isPromptExpanded = !isPromptExpanded"
-                                    class="w-full px-4 py-3 flex items-center justify-between text-left cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/30"
+                            <!-- Chat Messages Area -->
+                            <div
+                                ref="chatMessagesContainer"
+                                class="flex-1 overflow-y-auto p-4 space-y-4"
+                            >
+                                <!-- Initial ground information / summary welcome -->
+                                <div class="rounded-xl border border-slate-150 dark:border-slate-850 p-3 bg-white dark:bg-slate-900/40 text-[11px] text-slate-500 dark:text-slate-400 space-y-2 leading-relaxed">
+                                    <p class="font-bold text-slate-700 dark:text-slate-300">Grounded in Summary Context</p>
+                                    <p>Ask questions about this book section ({{ formatPages(activeSummary.target_pages) }}). The model has access to the full PDF text pages extracted from the book!</p>
+                                </div>
+
+                                <!-- Message List -->
+                                <div
+                                    v-for="msg in activeSummary?.chat_messages || []"
+                                    :key="msg.id"
+                                    class="flex flex-col animate-fade-in"
+                                    :class="msg.role === 'user' ? 'items-end' : 'items-start'"
                                 >
-                                    <span class="text-xs font-bold text-slate-655 dark:text-slate-400 flex items-center gap-1.5">
-                                        <svg class="h-3.5 w-3.5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Prompt Instruction Used
-                                    </span>
-                                    <svg
-                                        class="h-4 w-4 transform transition-transform duration-200 text-slate-400"
-                                        :class="{ 'rotate-180': isPromptExpanded }"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        stroke-width="2"
+                                    <div class="text-[9px] text-slate-450 dark:text-slate-400 mb-1 px-1 font-semibold">
+                                        {{ msg.role === 'user' ? 'You' : 'Assistant' }}
+                                    </div>
+                                    <div
+                                        class="max-w-[90%] rounded-2xl px-3.5 py-2.5 text-xs shadow-sm"
+                                        :class="msg.role === 'user'
+                                            ? 'bg-violet-600 text-white rounded-tr-none font-medium'
+                                            : 'bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 text-slate-850 dark:text-slate-150 rounded-tl-none'"
                                     >
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                <div v-if="isPromptExpanded" class="px-4 pb-4 border-t border-slate-150 dark:border-slate-800/80 pt-3">
-                                    <p class="text-xs font-mono italic text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
-                                        "{{ activeSummary.prompt_used }}"
-                                    </p>
-                                    <div class="mt-3 flex items-center justify-between text-[10px] text-slate-400">
-                                        <span>Tokens used: {{ activeSummary.tokens_used || '?' }}</span>
-                                        <span>ID: #{{ activeSummary.id }}</span>
+                                        <!-- If assistant response, render as markdown (supporting tables, lists, etc.) -->
+                                        <div 
+                                            v-if="msg.role === 'assistant'" 
+                                            v-html="renderMarkdown(msg.content)"
+                                            class="prose prose-xs dark:prose-invert max-w-none break-words"
+                                        ></div>
+                                        <div v-else class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Loading / Generating message indicator -->
+                                <div
+                                    v-if="chatForm.processing"
+                                    class="flex flex-col items-start"
+                                >
+                                    <div class="text-[9px] text-slate-450 dark:text-slate-400 mb-1 px-1 font-semibold">Assistant</div>
+                                    <div class="max-w-[90%] rounded-2xl rounded-tl-none px-4 py-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 text-slate-500 flex items-center gap-2">
+                                        <svg class="animate-spin h-3.5 w-3.5 text-violet-600" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span class="text-xs font-bold text-slate-550">Thinking...</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Markdown reading pane -->
-                            <article
-                                class="prose dark:prose-invert max-w-none transition-all duration-200"
-                                :class="[
-                                    fontSize === 'sm' ? 'text-xs md:text-sm' : fontSize === 'lg' ? 'text-base md:text-lg' : 'text-sm md:text-base',
-                                    fontStyle === 'serif' ? 'font-serif tracking-normal leading-relaxed' : fontStyle === 'mono' ? 'font-mono text-xs leading-normal' : 'font-sans tracking-wide leading-relaxed'
-                                ]"
-                                v-html="renderMarkdown(activeSummary.generated_summary)"
-                            ></article>
-
-                            <!-- Navigation between summaries -->
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-8 mt-12 flex items-center justify-between gap-4">
-                                <button
-                                    @click="goToPrevious"
-                                    :disabled="activeFilteredIndex <= 0"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-205 dark:border-slate-805 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-white transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                                >
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                                    </svg>
-                                    Prev Summary
-                                </button>
-                                
-                                <span class="text-xs text-slate-450 font-bold">
-                                    {{ activeFilteredIndex + 1 }} / {{ filteredSummaries.length }}
-                                </span>
-
-                                <button
-                                    @click="goToNext"
-                                    :disabled="activeFilteredIndex >= filteredSummaries.length - 1"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-205 dark:border-slate-805 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-white transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                                >
-                                    Next Summary
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
+                            <!-- Message Input Form -->
+                            <div class="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/80 shrink-0">
+                                <form @submit.prevent="sendChatMessage" class="flex gap-2">
+                                    <input
+                                        type="text"
+                                        v-model="chatForm.message"
+                                        placeholder="Ask a question..."
+                                        class="flex-1 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500 dark:focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all text-slate-800 dark:text-slate-200"
+                                        :disabled="chatForm.processing"
+                                        required
+                                    />
+                                    <button
+                                        type="submit"
+                                        class="p-2.5 bg-violet-605 hover:bg-violet-750 text-white rounded-xl shadow-md shadow-violet-500/10 hover:shadow-violet-500/20 transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center justify-center shrink-0"
+                                        :disabled="!chatForm.message.trim() || chatForm.processing"
+                                        title="Send message"
+                                    >
+                                        <svg class="h-4 w-4 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                        </svg>
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
