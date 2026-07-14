@@ -140,6 +140,10 @@ class BookController extends Controller
 
         $book->addMedia($file)->toMediaCollection('file');
 
+        if ($request->hasFile('thumbnail')) {
+            $book->addMedia($request->file('thumbnail'))->toMediaCollection('thumbnail');
+        }
+
         if ($fileType === BookFileType::Epub) {
             $this->epubParserService->parseAndStoreSections($book, $book->getFirstMediaPath('file'));
         } elseif ($fileType === BookFileType::Pdf) {

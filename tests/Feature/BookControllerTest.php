@@ -131,6 +131,37 @@ class BookControllerTest extends TestCase
         $this->assertEquals('book.pdf', $book->getFirstMedia('file')->file_name);
     }
 
+    public function test_authenticated_user_can_store_book_with_valid_pdf_file_and_thumbnail(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $file = UploadedFile::fake()->create('book.pdf', 100, 'application/pdf');
+        $thumbnail = UploadedFile::fake()->image('cover.jpg', 600, 800);
+
+        $response = $this->actingAs($user)->post('/books', [
+            'title' => 'Test Book with Cover',
+            'author' => 'Test Author 3',
+            'file' => $file,
+            'thumbnail' => $thumbnail,
+        ]);
+
+        $response->assertRedirect('/books');
+
+        $this->assertDatabaseHas('books', [
+            'title' => 'Test Book with Cover',
+            'author' => 'Test Author 3',
+            'file_type' => 'pdf',
+        ]);
+
+        $book = Book::firstWhere('title', 'Test Book with Cover');
+        $this->assertNotNull($book);
+        $this->assertTrue($book->hasMedia('file'));
+        $this->assertTrue($book->hasMedia('thumbnail'));
+        $this->assertEquals('book.pdf', $book->getFirstMedia('file')->file_name);
+        $this->assertEquals('cover.jpg', $book->getFirstMedia('thumbnail')->file_name);
+    }
+
     public function test_authenticated_user_can_store_book_with_valid_epub_file(): void
     {
         Storage::fake('public');

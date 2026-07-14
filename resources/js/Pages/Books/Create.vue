@@ -18,6 +18,9 @@ const isDragging = ref(false);
 const fileInput = ref(null);
 const selectedFile = ref(null);
 
+const thumbnailInput = ref(null);
+const thumbnailPreview = ref(null);
+
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
 });
@@ -42,6 +45,7 @@ const form = useForm({
     title: '',
     author: '',
     file: null,
+    thumbnail: null,
     tags: [],
 });
 
@@ -85,6 +89,34 @@ const clearFile = () => {
     form.file = null;
     if (fileInput.value) {
         fileInput.value.value = '';
+    }
+};
+
+const triggerThumbnailInput = () => {
+    thumbnailInput.value.click();
+};
+
+const handleThumbnailChange = (e) => {
+    const files = e.target.files;
+    if (files.length > 0) {
+        setThumbnail(files[0]);
+    }
+};
+
+const setThumbnail = (file) => {
+    form.thumbnail = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        thumbnailPreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+const clearThumbnail = () => {
+    form.thumbnail = null;
+    thumbnailPreview.value = null;
+    if (thumbnailInput.value) {
+        thumbnailInput.value.value = '';
     }
 };
 
@@ -246,67 +278,125 @@ const submit = () => {
             <!-- Main Form Card -->
             <div class="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-900 rounded-3xl shadow-xl overflow-hidden p-6 sm:p-8">
                 <form @submit.prevent="submit" class="space-y-6">
-                    <!-- File Upload Section -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-bold text-slate-700 dark:text-slate-300">Book File</label>
-                        
-                        <!-- Drag & Drop Zone -->
-                        <div
-                            v-if="!selectedFile"
-                            @dragover.prevent="isDragging = true"
-                            @dragleave.prevent="isDragging = false"
-                            @drop.prevent="handleDrop"
-                            @click="triggerFileInput"
-                            class="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center min-h-[200px]"
-                            :class="[
-                                isDragging
-                                    ? 'border-violet-500 bg-violet-500/5 dark:bg-violet-500/10 scale-[1.01]'
-                                    : 'border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-950/20'
-                            ]"
-                        >
-                            <input
-                                ref="fileInput"
-                                type="file"
-                                accept=".pdf,.epub"
-                                class="hidden"
-                                @change="handleFileChange"
-                            />
-                            <div class="h-12 w-12 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
-                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                            </div>
-                            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">Drag & drop your file here, or <span class="text-violet-600 dark:text-violet-400">browse</span></h3>
-                            <p class="text-xs text-slate-400 mt-2">Supports PDF and EPUB files up to 50MB</p>
-                        </div>
-
-                        <!-- Selected File Display -->
-                        <div
-                            v-else
-                            class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl"
-                        >
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white font-extrabold uppercase text-xs flex-shrink-0">
-                                    {{ selectedFile.type }}
-                                </div>
-                                <div class="min-w-0">
-                                    <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate pr-4">{{ selectedFile.name }}</h4>
-                                    <p class="text-xs text-slate-400 mt-0.5">{{ selectedFile.size }}</p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                @click="clearFile"
-                                class="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    <!-- File & Thumbnail Upload Section -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- File Upload Section -->
+                        <div class="space-y-2 flex flex-col justify-between">
+                            <label class="block text-sm font-bold text-slate-700 dark:text-slate-300">Book File</label>
+                            
+                            <!-- Drag & Drop Zone -->
+                            <div
+                                v-if="!selectedFile"
+                                @dragover.prevent="isDragging = true"
+                                @dragleave.prevent="isDragging = false"
+                                @drop.prevent="handleDrop"
+                                @click="triggerFileInput"
+                                class="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center min-h-[200px] border-slate-300 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 hover:bg-violet-500/5 dark:hover:bg-violet-500/5"
+                                :class="[
+                                    isDragging
+                                        ? 'border-violet-500 bg-violet-500/5 dark:bg-violet-500/10 scale-[1.01]'
+                                        : 'border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20'
+                                ]"
                             >
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
+                                <input
+                                    ref="fileInput"
+                                    type="file"
+                                    accept=".pdf,.epub"
+                                    class="hidden"
+                                    @change="handleFileChange"
+                                />
+                                <div class="h-12 w-12 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
+                                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">Drag & drop your file here, or <span class="text-violet-600 dark:text-violet-400">browse</span></h3>
+                                <p class="text-xs text-slate-400 mt-2">Supports PDF and EPUB files up to 50MB</p>
+                            </div>
+
+                            <!-- Selected File Display -->
+                            <div
+                                v-else
+                                class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl min-h-[200px]"
+                            >
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white font-extrabold uppercase text-xs flex-shrink-0">
+                                        {{ selectedFile.type }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate pr-4">{{ selectedFile.name }}</h4>
+                                        <p class="text-xs text-slate-400 mt-0.5">{{ selectedFile.size }}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="clearFile"
+                                    class="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                >
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- Error display -->
+                            <p v-if="form.errors.file" class="text-xs font-semibold text-rose-500 mt-1.5">{{ form.errors.file }}</p>
                         </div>
 
-                        <!-- Error display -->
-                        <p v-if="form.errors.file" class="text-xs font-semibold text-rose-500 mt-1.5">{{ form.errors.file }}</p>
+                        <!-- Thumbnail Upload Section -->
+                        <div class="space-y-2 flex flex-col justify-between">
+                            <label class="block text-sm font-bold text-slate-700 dark:text-slate-300">Book Thumbnail (Optional)</label>
+                            
+                            <!-- Upload Zone -->
+                            <div
+                                v-if="!thumbnailPreview"
+                                @click="triggerThumbnailInput"
+                                class="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center min-h-[200px] border-slate-300 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 hover:bg-violet-500/5 dark:hover:bg-violet-500/5 bg-slate-50/50 dark:bg-slate-950/20"
+                            >
+                                <input
+                                    ref="thumbnailInput"
+                                    type="file"
+                                    accept="image/*"
+                                    class="hidden"
+                                    @change="handleThumbnailChange"
+                                />
+                                <div class="h-12 w-12 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
+                                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">Upload a cover image or <span class="text-violet-600 dark:text-violet-400">browse</span></h3>
+                                <p class="text-xs text-slate-400 mt-2">Supports JPG, PNG, WEBP, GIF up to 5MB</p>
+                            </div>
+
+                            <!-- Thumbnail Preview Display -->
+                            <div
+                                v-else
+                                class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl min-h-[200px]"
+                            >
+                                <div class="flex items-center gap-4 min-w-0 w-full">
+                                    <div class="relative h-24 w-16 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-100 dark:bg-slate-900">
+                                        <img :src="thumbnailPreview" class="h-full w-full object-cover" alt="Thumbnail Preview" />
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate pr-4">{{ form.thumbnail.name }}</h4>
+                                        <p class="text-xs text-slate-400 mt-0.5">{{ formatBytes(form.thumbnail.size) }}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="clearThumbnail"
+                                        class="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors"
+                                    >
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Error display -->
+                            <p v-if="form.errors.thumbnail" class="text-xs font-semibold text-rose-500 mt-1.5">{{ form.errors.thumbnail }}</p>
+                        </div>
                     </div>
 
                     <!-- Title Field -->

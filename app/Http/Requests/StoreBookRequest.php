@@ -22,6 +22,7 @@ class StoreBookRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
             'file' => ['required', 'file', 'mimes:pdf,epub'],
+            'thumbnail' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['string', 'max:50'],
         ];
