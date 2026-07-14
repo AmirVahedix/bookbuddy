@@ -100,15 +100,19 @@ const copySummary = () => {
 };
 
 const scrollToBottom = () => {
-    nextTick(() => {
+    const doScroll = () => {
         if (chatMessagesContainer.value) {
             chatMessagesContainer.value.scrollTop = chatMessagesContainer.value.scrollHeight;
         }
-    });
+    };
+    doScroll();
+    setTimeout(doScroll, 50);
+    setTimeout(doScroll, 150);
+    setTimeout(doScroll, 300);
 };
 
 const adjustScrollPositionForActiveSummary = () => {
-    nextTick(() => {
+    const doScroll = () => {
         if (!chatMessagesContainer.value) return;
         const userMessages = chatMessagesContainer.value.querySelectorAll('.user-message-container');
         if (userMessages.length > 0) {
@@ -117,10 +121,17 @@ const adjustScrollPositionForActiveSummary = () => {
             const messageRect = lastUserMessage.getBoundingClientRect();
             const relativeOffsetTop = messageRect.top - containerRect.top + chatMessagesContainer.value.scrollTop;
             chatMessagesContainer.value.scrollTop = Math.max(0, relativeOffsetTop - 20);
-        } else {
-            chatMessagesContainer.value.scrollTop = 0;
         }
-    });
+    };
+    doScroll();
+    setTimeout(doScroll, 50);
+    setTimeout(doScroll, 150);
+    setTimeout(doScroll, 300);
+    setTimeout(doScroll, 600);
+    setTimeout(doScroll, 1000);
+    if (document.fonts) {
+        document.fonts.ready.then(doScroll);
+    }
 };
 
 const sendChatMessage = () => {
@@ -135,17 +146,19 @@ const sendChatMessage = () => {
         created_at: 'Just now',
     });
 
-    scrollToBottom();
+    nextTick(() => {
+        scrollToBottom();
 
-    chatForm.post(`/summaries/${activeSummary.value.id}/chat`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            chatForm.reset('message');
-        },
-        onFinish: () => {
-            pendingMessages.value = [];
-            // Do not automatically scroll down when the response comes back
-        },
+        chatForm.post(`/summaries/${activeSummary.value.id}/chat`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                chatForm.reset('message');
+            },
+            onFinish: () => {
+                pendingMessages.value = [];
+                // Do not automatically scroll down when the response comes back
+            },
+        });
     });
 };
 
