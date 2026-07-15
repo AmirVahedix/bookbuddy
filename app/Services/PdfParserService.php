@@ -22,10 +22,12 @@ class PdfParserService
 
             if ($driver === 'php') {
                 $sections = $this->parseUsingPhp($filePath);
-            }
-
-            if (empty($sections)) {
+            } else {
                 $sections = $this->parseUsingPython($filePath);
+                if (empty($sections)) {
+                    // Fallback to PHP if Python is selected but returns nothing
+                    $sections = $this->parseUsingPhp($filePath);
+                }
             }
 
             if (empty($sections)) {
@@ -65,9 +67,13 @@ class PdfParserService
     protected function parseUsingPython(string $filePath): array
     {
         try {
-            $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
-            if (! file_exists($pythonPath)) {
-                $pythonPath = 'python3';
+            $pythonPath = env('PYTHON_PATH');
+
+            if (empty($pythonPath)) {
+                $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
+                if (! $this->isSafePath($pythonPath) || ! @file_exists($pythonPath)) {
+                    $pythonPath = 'python3';
+                }
             }
 
             $scriptPath = base_path('app/Services/pdf_outline_parser.py');
@@ -94,6 +100,32 @@ class PdfParserService
 
             return [];
         }
+    }
+
+    /**
+     * Check if a file path is safe to access under open_basedir restriction.
+     */
+    protected function isSafePath(string $path): bool
+    {
+        $openBasedir = ini_get('open_basedir');
+        if (empty($openBasedir)) {
+            return true;
+        }
+
+        $allowedPaths = explode(PATH_SEPARATOR, $openBasedir);
+        $realPath = realpath($path) ?: $path;
+
+        foreach ($allowedPaths as $allowed) {
+            if (empty($allowed)) {
+                continue;
+            }
+            $allowedReal = realpath($allowed) ?: $allowed;
+            if (str_starts_with($realPath, $allowedReal)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

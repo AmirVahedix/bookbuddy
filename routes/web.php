@@ -37,3 +37,9 @@ Route::get('/storage-link', function () {
 
     return 'ok';
 });
+
+Route::get('/optimize-clear', function () {
+    Artisan::call('optimize:clear');
+
+    return 'ok';
+});
