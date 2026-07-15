@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\SummaryController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,4 +29,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/summaries/{summary}/chat', [SummaryController::class, 'chat'])->name('summaries.chat');
     Route::delete('/summaries/{summary}/chat', [SummaryController::class, 'clearChat'])->name('summaries.clear-chat');
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+});
+
+Route::get('/storage-link', function () {
+    Artisan::call('storage:link');
+
+    return 'ok';
 });

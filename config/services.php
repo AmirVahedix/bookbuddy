@@ -42,4 +42,8 @@ return [
         'pdf_format' => env('OPENAI_PDF_FORMAT', 'file'),
     ],
 
+    'pdf' => [
+        'parser' => env('PDF_PARSER_DRIVER', 'php'),
+    ],
+
 ];

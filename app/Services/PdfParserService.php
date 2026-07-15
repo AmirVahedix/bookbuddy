@@ -17,37 +17,25 @@ class PdfParserService
     public function parseAndStoreSections(Book $book, string $filePath): void
     {
         try {
-            $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
-            if (! file_exists($pythonPath)) {
-                $pythonPath = 'python3';
+            $sections = [];
+            $driver = config('services.pdf.parser', 'php');
+
+            if ($driver === 'php') {
+                $sections = $this->parseUsingPhp($filePath);
             }
 
-            $scriptPath = base_path('app/Services/pdf_outline_parser.py');
-
-            $result = Process::run([$pythonPath, $scriptPath, $filePath]);
-
-            if (! $result->successful()) {
-                Log::error('PDF outline parser script failed: '.$result->errorOutput());
-
-                return;
+            if (empty($sections)) {
+                $sections = $this->parseUsingPython($filePath);
             }
 
-            $data = json_decode($result->output(), true);
-
-            if (isset($data['error'])) {
-                Log::error('PDF outline parser returned error: '.$data['error']);
-
-                return;
-            }
-
-            if (! isset($data['sections']) || empty($data['sections'])) {
+            if (empty($sections)) {
                 Log::info("No outline/table of contents found for PDF book: {$book->id}");
 
                 return;
             }
 
             $order = 1;
-            foreach ($data['sections'] as $section) {
+            foreach ($sections as $section) {
                 $sectionIdentifier = 'page-'.$section['page'];
 
                 BookSection::updateOrCreate(
@@ -67,5 +55,339 @@ class PdfParserService
         } catch (\Exception $e) {
             Log::error('Error parsing and storing PDF sections: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Parse outline using Python script.
+     *
+     * @return array<int, array{title: string, page: int, level: int, end_page: int}>
+     */
+    protected function parseUsingPython(string $filePath): array
+    {
+        try {
+            $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
+            if (! file_exists($pythonPath)) {
+                $pythonPath = 'python3';
+            }
+
+            $scriptPath = base_path('app/Services/pdf_outline_parser.py');
+
+            $result = Process::run([$pythonPath, $scriptPath, $filePath]);
+
+            if (! $result->successful()) {
+                Log::error('PDF outline parser script failed: '.$result->errorOutput());
+
+                return [];
+            }
+
+            $data = json_decode($result->output(), true);
+
+            if (isset($data['error'])) {
+                Log::error('PDF outline parser returned error: '.$data['error']);
+
+                return [];
+            }
+
+            return $data['sections'] ?? [];
+        } catch (\Exception $e) {
+            Log::error('Error running Python PDF outline parser: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Parse outline using native PHP.
+     *
+     * @return array<int, array{title: string, page: int, level: int, end_page: int}>
+     */
+    public function parseUsingPhp(string $filePath): array
+    {
+        if (! file_exists($filePath)) {
+            return [];
+        }
+
+        $pdfData = file_get_contents($filePath);
+        if ($pdfData === false) {
+            return [];
+        }
+
+        // Parse indirect objects
+        $objects = [];
+        $offset = 0;
+        $len = strlen($pdfData);
+        while (true) {
+            if (! preg_match('/(\d+)\s+(\d+)\s+obj/s', $pdfData, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+                break;
+            }
+            $objId = (int) $matches[1][0];
+            $startPos = $matches[0][1];
+            $endPos = strpos($pdfData, 'endobj', $startPos);
+            if ($endPos === false) {
+                break;
+            }
+            $objContent = substr($pdfData, $startPos, $endPos - $startPos);
+
+            // Strip stream if present to save memory and avoid scanning binary data
+            $streamStart = strpos($objContent, 'stream');
+            if ($streamStart !== false) {
+                $objContent = substr($objContent, 0, $streamStart);
+            }
+
+            $objects[$objId] = $objContent;
+            $offset = $endPos + 6;
+        }
+
+        // Find Catalog / Root ID
+        $rootId = null;
+        foreach ($objects as $id => $content) {
+            if (preg_match('/\/Type\s*\/Catalog\b/', $content)) {
+                $rootId = $id;
+                break;
+            }
+        }
+        if (! $rootId && preg_match('/\/Root\s+(\d+)\s+\d+\s+R/', $pdfData, $m)) {
+            $rootId = (int) $m[1];
+        }
+
+        // Resolve Page Tree to map object IDs to 1-based page numbers
+        $pagesId = null;
+        if ($rootId && isset($objects[$rootId])) {
+            if (preg_match('/\/Pages\s+(\d+)\s+\d+\s+R/', $objects[$rootId], $m)) {
+                $pagesId = (int) $m[1];
+            }
+        }
+
+        $pages = [];
+        $traversePages = function (int $id) use (&$traversePages, &$pages, $objects) {
+            if (! isset($objects[$id])) {
+                return;
+            }
+            $content = $objects[$id];
+            if (preg_match('/\/Type\s*\/Page\b/', $content) && ! preg_match('/\/Type\s*\/Pages\b/', $content)) {
+                $pages[] = $id;
+
+                return;
+            }
+
+            if (preg_match('/\/Kids\s*\[([^\]]+)\]/', $content, $m)) {
+                $kidsStr = $m[1];
+                if (preg_match_all('/(\d+)\s+\d+\s+R/', $kidsStr, $matches)) {
+                    foreach ($matches[1] as $kidId) {
+                        $traversePages((int) $kidId);
+                    }
+                }
+            }
+        };
+
+        if ($pagesId) {
+            $traversePages($pagesId);
+        }
+
+        // Fallback: order of /Type /Page if traversal didn't yield anything
+        if (empty($pages)) {
+            foreach ($objects as $id => $content) {
+                if (preg_match('/\/Type\s*\/Page\b/', $content) && ! preg_match('/\/Type\s*\/Pages\b/', $content)) {
+                    $pages[] = $id;
+                }
+            }
+        }
+
+        // Resolve Outlines Tree
+        $outlinesId = null;
+        if ($rootId && isset($objects[$rootId])) {
+            if (preg_match('/\/Outlines\s+(\d+)\s+\d+\s+R/', $objects[$rootId], $m)) {
+                $outlinesId = (int) $m[1];
+            }
+        }
+        if (! $outlinesId) {
+            foreach ($objects as $id => $content) {
+                if (preg_match('/\/Type\s*\/Outlines\b/', $content)) {
+                    $outlinesId = $id;
+                    break;
+                }
+            }
+        }
+
+        $firstId = null;
+        if ($outlinesId && isset($objects[$outlinesId])) {
+            if (preg_match('/\/First\s+(\d+)\s+\d+\s+R/', $objects[$outlinesId], $m)) {
+                $firstId = (int) $m[1];
+            }
+        }
+
+        $sections = [];
+        $traverseOutline = function (int $id, int $level) use (&$traverseOutline, &$sections, $objects, $pages) {
+            $visited = [];
+            $currId = $id;
+            while ($currId && ! in_array($currId, $visited)) {
+                $visited[] = $currId;
+                if (! isset($objects[$currId])) {
+                    break;
+                }
+                $content = $objects[$currId];
+
+                // Extract Title
+                $title = null;
+                if (preg_match('/\/Title\s*\((.*?)\)/s', $content, $m)) {
+                    $title = $m[1];
+                    $title = str_replace(['\\(', '\\)', '\\\\', '\\n', '\\r', '\\t'], ['(', ')', '\\', "\n", "\r", "\t"], $title);
+                    $title = $this->decodePdfString($title);
+                } elseif (preg_match('/\/Title\s*<([^>]+)>/s', $content, $m)) {
+                    $title = $this->decodeHexPdfString($m[1]);
+                }
+
+                // Extract Target Page
+                $pageNo = null;
+
+                // Case 1: Direct /Dest with page object reference
+                if (preg_match('/\/Dest\s*\[\s*(\d+)\s+\d+\s+R/', $content, $m)) {
+                    $destPageObjId = (int) $m[1];
+                    $pageIndex = array_search($destPageObjId, $pages);
+                    if ($pageIndex !== false) {
+                        $pageNo = $pageIndex + 1;
+                    }
+                }
+                // Case 2: /Dest as indirect reference
+                elseif (preg_match('/\/Dest\s+(\d+)\s+\d+\s+R/', $content, $m)) {
+                    $destId = (int) $m[1];
+                    if (isset($objects[$destId])) {
+                        $destContent = $objects[$destId];
+                        if (preg_match('/\[\s*(\d+)\s+\d+\s+R/', $destContent, $dm)) {
+                            $destPageObjId = (int) $dm[1];
+                            $pageIndex = array_search($destPageObjId, $pages);
+                            if ($pageIndex !== false) {
+                                $pageNo = $pageIndex + 1;
+                            }
+                        }
+                    }
+                }
+                // Case 3: Action GoTo
+                elseif (preg_match('/\/A\s*<<[^>]*\/D\s*\[\s*(\d+)\s+\d+\s+R/', $content, $m)) {
+                    $destPageObjId = (int) $m[1];
+                    $pageIndex = array_search($destPageObjId, $pages);
+                    if ($pageIndex !== false) {
+                        $pageNo = $pageIndex + 1;
+                    }
+                }
+                // Case 4: Action GoTo indirect action
+                elseif (preg_match('/\/A\s*<<[^>]*\/D\s*(\d+)\s+\d+\s+R/', $content, $m)) {
+                    $destId = (int) $m[1];
+                    if (isset($objects[$destId])) {
+                        $destContent = $objects[$destId];
+                        if (preg_match('/\[\s*(\d+)\s+\d+\s+R/', $destContent, $dm)) {
+                            $destPageObjId = (int) $dm[1];
+                            $pageIndex = array_search($destPageObjId, $pages);
+                            if ($pageIndex !== false) {
+                                $pageNo = $pageIndex + 1;
+                            }
+                        }
+                    }
+                }
+
+                if ($title !== null && $pageNo !== null) {
+                    $title = trim(preg_replace('/\s+/', ' ', $title));
+                    $sections[] = [
+                        'title' => $title,
+                        'page' => $pageNo,
+                        'level' => $level,
+                    ];
+                }
+
+                // Traverse children
+                if (preg_match('/\/First\s+(\d+)\s+\d+\s+R/', $content, $cm)) {
+                    $firstChildId = (int) $cm[1];
+                    $traverseOutline($firstChildId, $level + 1);
+                }
+
+                // Go to next sibling
+                $nextId = null;
+                if (preg_match('/\/Next\s+(\d+)\s+\d+\s+R/', $content, $nm)) {
+                    $nextId = (int) $nm[1];
+                }
+                $currId = $nextId;
+            }
+        };
+
+        if ($firstId) {
+            $traverseOutline($firstId, 1);
+        }
+
+        // Calculate end pages
+        $totalPages = count($pages);
+        $sectionsCount = count($sections);
+        for ($i = 0; $i < $sectionsCount; $i++) {
+            $currPage = $sections[$i]['page'];
+            $currLevel = $sections[$i]['level'];
+            $endPage = $totalPages;
+
+            for ($j = $i + 1; $j < $sectionsCount; $j++) {
+                $nextPage = $sections[$j]['page'];
+                $nextLevel = $sections[$j]['level'];
+
+                if ($nextLevel <= $currLevel) {
+                    if ($nextPage > $currPage) {
+                        $endPage = $nextPage - 1;
+                        break;
+                    } elseif ($nextPage == $currPage) {
+                        $endPage = $currPage;
+                        break;
+                    }
+                }
+            }
+
+            $sections[$i]['end_page'] = $endPage;
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Decode a PDF hex string (e.g. from UTF-16BE/FEFF encoding).
+     */
+    protected function decodeHexPdfString(string $hex): string
+    {
+        $hex = preg_replace('/[^0-9A-Fa-f]/', '', $hex);
+        $bin = pack('H*', $hex);
+
+        if (str_starts_with($bin, "\xFE\xFF")) {
+            $decoded = iconv('UTF-16BE', 'UTF-8//IGNORE', substr($bin, 2));
+
+            return $decoded !== false ? $decoded : $bin;
+        }
+
+        return $bin;
+    }
+
+    /**
+     * Decode a standard PDF string (e.g. with octal escapes).
+     */
+    protected function decodePdfString(string $str): string
+    {
+        if (str_starts_with($str, '\\376\\377')) {
+            $bytes = '';
+            $i = 0;
+            $len = strlen($str);
+            while ($i < $len) {
+                if ($str[$i] === '\\' && $i + 1 < $len && is_numeric($str[$i + 1])) {
+                    $octal = substr($str, $i + 1, 3);
+                    if (preg_match('/^[0-7]{1,3}/', $octal, $m)) {
+                        $bytes .= chr(octdec($m[0]));
+                        $i += 1 + strlen($m[0]);
+
+                        continue;
+                    }
+                }
+                $bytes .= $str[$i];
+                $i++;
+            }
+            if (str_starts_with($bytes, "\xFE\xFF")) {
+                $decoded = iconv('UTF-16BE', 'UTF-8//IGNORE', substr($bytes, 2));
+
+                return $decoded !== false ? $decoded : $bytes;
+            }
+        }
+
+        return $str;
     }
 }
