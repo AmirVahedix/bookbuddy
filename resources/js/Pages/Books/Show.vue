@@ -391,6 +391,26 @@ const filteredSummaries = computed(() => {
 
     return result;
 });
+
+const isDeleteModalOpen = ref(false);
+const isDeleting = ref(false);
+
+const confirmDeleteBook = () => {
+    isDeleteModalOpen.value = true;
+};
+
+const deleteBook = () => {
+    isDeleting.value = true;
+    router.delete(`/books/${props.book.id}`, {
+        onSuccess: () => {
+            isDeleteModalOpen.value = false;
+            isDeleting.value = false;
+        },
+        onError: () => {
+            isDeleting.value = false;
+        }
+    });
+};
 </script>
 
 <template>
@@ -562,7 +582,7 @@ const filteredSummaries = computed(() => {
                             </form>
 
                             <!-- Standalone reader & summaries buttons -->
-                            <div class="flex items-center gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
                                 <Link
                                     v-if="props.summaries && props.summaries.length > 0"
                                     :href="'/books/' + props.book.id + '/summaries'"
@@ -585,6 +605,17 @@ const filteredSummaries = computed(() => {
                                     </svg>
                                     PDF Reader
                                 </Link>
+
+                                <button
+                                    @click="confirmDeleteBook"
+                                    class="inline-flex items-center justify-center rounded-2xl border border-rose-200 dark:border-rose-950 hover:border-rose-300 dark:hover:border-rose-800 bg-white hover:bg-rose-50 dark:bg-slate-900/60 dark:hover:bg-rose-950/20 px-5 py-3 text-sm font-bold text-rose-600 dark:text-rose-400 shadow-sm transition-all duration-200 cursor-pointer"
+                                    title="Delete Book"
+                                >
+                                    <svg class="h-4.5 w-4.5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete Book
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -996,6 +1027,50 @@ const filteredSummaries = computed(() => {
 
         <!-- Bottom Navigation for Mobile -->
         <BottomNavigation />
+
+        <!-- Delete Confirmation Modal -->
+        <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+            <!-- Overlay -->
+            <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" @click="isDeleteModalOpen = false"></div>
+
+            <!-- Modal Content -->
+            <div class="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 text-left shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-start gap-4">
+                    <div class="h-10 w-10 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Delete Book?</h3>
+                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            Are you sure you want to delete <strong class="font-semibold text-slate-800 dark:text-slate-200">"{{ props.book.title }}"</strong>? This will permanently delete the book file, all generated AI summaries, and chat history. This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        @click="isDeleteModalOpen = false"
+                        :disabled="isDeleting"
+                        class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all duration-200 cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        @click="deleteBook"
+                        :disabled="isDeleting"
+                        class="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all duration-200 shadow-lg shadow-rose-600/20 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                    >
+                        <svg v-if="isDeleting" class="animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {{ isDeleting ? 'Deleting...' : 'Delete Book' }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 

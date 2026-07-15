@@ -500,6 +500,50 @@ class BookControllerTest extends TestCase
         });
     }
 
+    public function test_unauthenticated_user_cannot_delete_book(): void
+    {
+        $book = Book::factory()->create();
+
+        $response = $this->delete("/books/{$book->id}");
+
+        $response->assertRedirect('/login');
+        $this->assertDatabaseHas('books', ['id' => $book->id]);
+    }
+
+    public function test_authenticated_user_can_delete_book(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        // Add some media file to ensure it's deleted
+        $file = UploadedFile::fake()->create('book.pdf', 100, 'application/pdf');
+        $book->addMedia($file)->toMediaCollection('file');
+
+        // Create related models to verify cascade deletion
+        $section = BookSection::factory()->create(['book_id' => $book->id]);
+        $summary = Summary::create([
+            'book_id' => $book->id,
+            'book_section_id' => $section->id,
+            'prompt_used' => 'Test prompt',
+            'generated_summary' => 'Test summary content',
+        ]);
+
+        $this->assertDatabaseHas('books', ['id' => $book->id]);
+        $this->assertDatabaseHas('book_sections', ['id' => $section->id]);
+        $this->assertDatabaseHas('summaries', ['id' => $summary->id]);
+        $this->assertTrue($book->hasMedia('file'));
+
+        $response = $this->actingAs($user)->delete("/books/{$book->id}");
+
+        $response->assertRedirect('/books');
+
+        $this->assertDatabaseMissing('books', ['id' => $book->id]);
+        $this->assertDatabaseMissing('book_sections', ['id' => $section->id]);
+        $this->assertDatabaseMissing('summaries', ['id' => $summary->id]);
+        $this->assertCount(0, $book->media()->get());
+    }
+
     protected function createMockEpubFile(string $filename, array $htmlFilesContent): UploadedFile
     {
         $tempFile = tempnam(sys_get_temp_dir(), 'epub');

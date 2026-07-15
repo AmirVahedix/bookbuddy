@@ -462,4 +462,14 @@ class BookController extends Controller
 
         return redirect()->route('books.summaries', [$book, $summary]);
     }
+
+    /**
+     * Remove the specified book from storage.
+     */
+    public function destroy(Book $book): RedirectResponse
+    {
+        $book->delete();
+
+        return redirect()->route('books.index');
+    }
 }
