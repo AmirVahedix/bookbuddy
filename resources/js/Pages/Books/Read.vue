@@ -26,7 +26,68 @@ const isNightReading = ref(false); // Inverts PDF canvas colors for reading in d
 const sidebarOpen = ref(true);
 const activeSidebarTab = ref('outline'); // 'outline', 'thumbnails', 'summaries'
 
+const isSettingsModalOpen = ref(false);
+const themeMode = ref('system');
+const showFloatingIndicator = ref(true);
+let inactivityTimeout = null;
+let systemThemeListener = null;
+let isApplyingTheme = false;
+
+const applyTheme = (mode) => {
+    isApplyingTheme = true;
+    themeMode.value = mode;
+    localStorage.setItem('theme', mode);
+    
+    let isDark = false;
+    if (mode === 'system') {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+        isDark = mode === 'dark';
+    }
+    
+    isNightReading.value = isDark;
+    isDarkMode.value = isDark;
+    if (isDark) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+    nextTick(() => {
+        isApplyingTheme = false;
+    });
+};
+
+const handleSystemThemeChange = () => {
+    if (themeMode.value === 'system') {
+        applyTheme('system');
+    }
+};
+
+const setupSystemThemeListener = () => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    systemThemeListener = mediaQuery;
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+};
+
+const resetInactivityTimer = () => {
+    showFloatingIndicator.value = true;
+    if (inactivityTimeout) {
+        clearTimeout(inactivityTimeout);
+    }
+    inactivityTimeout = setTimeout(() => {
+        showFloatingIndicator.value = false;
+    }, 3000);
+};
+
+const handleGlobalInteraction = () => {
+    if (window.innerWidth < 768) {
+        resetInactivityTimer();
+    }
+};
+
 watch(isNightReading, (val) => {
+    if (isApplyingTheme) return;
+    themeMode.value = val ? 'dark' : 'light';
     if (val) {
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
@@ -91,6 +152,65 @@ const rotation = ref(0);
 const thumbnails = ref([]);
 const pages = ref([]); // Array of { num, width, height, shouldRender, isVisible, renderStatus }
 
+// Mobile pinch-to-zoom state
+const isPinching = ref(false);
+let initialDistance = 0;
+let initialScale = 1.0;
+
+const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        isPinching.value = true;
+        initialDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialScale = scale.value;
+    }
+};
+
+const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && isPinching.value) {
+        e.preventDefault();
+        const currentDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (initialDistance > 0) {
+            const factor = currentDistance / initialDistance;
+            const wrapper = document.getElementById('pdf-pages-wrapper');
+            if (wrapper) {
+                wrapper.style.transform = `scale(${factor})`;
+            }
+        }
+    }
+};
+
+const handleTouchEnd = (e) => {
+    if (isPinching.value) {
+        isPinching.value = false;
+        
+        const wrapper = document.getElementById('pdf-pages-wrapper');
+        let factor = 1.0;
+        
+        if (wrapper && wrapper.style.transform) {
+            const match = wrapper.style.transform.match(/scale\(([^)]+)\)/);
+            if (match && match[1]) {
+                factor = parseFloat(match[1]);
+            }
+            wrapper.style.transform = '';
+        }
+        
+        scale.value = Math.min(4.0, Math.max(0.2, initialScale * factor));
+        
+        pages.value.forEach(page => {
+            if (page.shouldRender) {
+                renderPage(page.num);
+            }
+        });
+    }
+};
+
 // Map of active render tasks (non-reactive to avoid Vue Proxy #private member errors)
 const activeRenderTasks = new Map(); // pageNum -> renderTask
 
@@ -129,19 +249,57 @@ const handleKeyDown = (e) => {
 let observer = null;
 
 onMounted(() => {
-    isDarkMode.value = document.documentElement.classList.contains('dark');
-    isNightReading.value = isDarkMode.value; // Sync night reading to system theme by default
-    
+    sidebarOpen.value = window.innerWidth >= 768;
+
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    applyTheme(savedTheme);
+    setupSystemThemeListener();
+
     window.addEventListener('keydown', handleKeyDown);
+    
+    // Global interaction listeners for floating page indicator
+    window.addEventListener('scroll', handleGlobalInteraction, { capture: true, passive: true });
+    window.addEventListener('click', handleGlobalInteraction, { passive: true });
+    window.addEventListener('touchstart', handleGlobalInteraction, { passive: true });
+    window.addEventListener('mousemove', handleGlobalInteraction, { passive: true });
+    
+    resetInactivityTimer();
+
     if (props.book.file_type === 'pdf' && props.book.file_url) {
         initPdf();
+    }
+
+    const viewport = document.getElementById('pdf-viewport');
+    if (viewport) {
+        viewport.addEventListener('touchstart', handleTouchStart, { passive: false });
+        viewport.addEventListener('touchmove', handleTouchMove, { passive: false });
+        viewport.addEventListener('touchend', handleTouchEnd);
+        viewport.addEventListener('touchcancel', handleTouchEnd);
     }
 });
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('scroll', handleGlobalInteraction, { capture: true });
+    window.removeEventListener('click', handleGlobalInteraction);
+    window.removeEventListener('touchstart', handleGlobalInteraction);
+    window.removeEventListener('mousemove', handleGlobalInteraction);
+    
+    if (systemThemeListener) {
+        systemThemeListener.removeEventListener('change', handleSystemThemeChange);
+    }
+    
+    if (inactivityTimeout) clearTimeout(inactivityTimeout);
     if (progressTimeout) clearTimeout(progressTimeout);
     if (observer) observer.disconnect();
+
+    const viewport = document.getElementById('pdf-viewport');
+    if (viewport) {
+        viewport.removeEventListener('touchstart', handleTouchStart);
+        viewport.removeEventListener('touchmove', handleTouchMove);
+        viewport.removeEventListener('touchend', handleTouchEnd);
+        viewport.removeEventListener('touchcancel', handleTouchEnd);
+    }
     
     // Cancel any active render tasks
     activeRenderTasks.forEach((task) => {
@@ -172,6 +330,23 @@ const initPdf = async () => {
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
         const defaultWidth = firstViewport.width;
         const defaultHeight = firstViewport.height;
+
+        if (window.innerWidth < 768) {
+            const viewportEl = document.getElementById('pdf-viewport');
+            if (viewportEl && viewportEl.clientWidth > 0 && viewportEl.clientHeight > 0) {
+                const containerWidth = viewportEl.clientWidth - 32;
+                const containerHeight = viewportEl.clientHeight - 32;
+                const scaleWidth = containerWidth / defaultWidth;
+                const scaleHeight = containerHeight / defaultHeight;
+                scale.value = Math.min(scaleWidth, scaleHeight);
+            } else {
+                const containerWidth = window.innerWidth - 32;
+                const containerHeight = window.innerHeight - 56 - 32;
+                const scaleWidth = containerWidth / defaultWidth;
+                const scaleHeight = containerHeight / defaultHeight;
+                scale.value = Math.min(scaleWidth, scaleHeight);
+            }
+        }
 
         // Initialize pages array with placeholders
         const tempPages = [];
@@ -317,8 +492,8 @@ const renderPage = async (pageNum) => {
 
         // Render at device pixel ratio to solve blurriness
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = viewport.width * dpr;
-        canvas.height = viewport.height * dpr;
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
 
         const renderContext = {
             canvasContext: context,
@@ -351,6 +526,7 @@ const cancelRenderTask = (page) => {
 };
 
 watch([scale, rotation], () => {
+    if (isPinching.value) return;
     pages.value.forEach(page => {
         if (page.shouldRender) {
             renderPage(page.num);
@@ -398,8 +574,15 @@ const goToPage = (page, smooth = true) => {
     }
 };
 
+const selectSection = (sec) => {
+    goToPage(sec.start_page);
+    if (window.innerWidth < 768) {
+        sidebarOpen.value = false;
+    }
+};
+
 const zoom = (factor) => {
-    scale.value = Math.min(4.0, Math.max(0.5, scale.value + factor));
+    scale.value = Math.min(4.0, Math.max(0.2, scale.value + factor));
 };
 
 const fitToWidth = () => {
@@ -584,14 +767,14 @@ const submitSummaryRequest = () => {
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                 </button>
-                <div class="hidden sm:block">
-                    <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Reading Now</span>
-                    <h1 class="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-1 -mt-0.5">{{ props.book.title }}</h1>
+                <div class="flex flex-col min-w-0 max-w-[160px] sm:max-w-xs md:max-w-none">
+                    <span class="text-[9px] md:text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block leading-none">Reading Now</span>
+                    <h1 class="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate -mt-0.5" :title="props.book.title">{{ props.book.title }}</h1>
                 </div>
             </div>
 
-            <!-- Page Selection Controls -->
-            <div class="flex items-center gap-2">
+            <!-- Page Selection Controls (Desktop Only) -->
+            <div class="hidden md:flex items-center gap-2">
                 <button
                     @click="changePage(-1)"
                     :disabled="currentPageNum <= 1"
@@ -624,8 +807,8 @@ const submitSummaryRequest = () => {
                 </button>
             </div>
 
-            <!-- Zoom and Appearance Controls -->
-            <div class="flex items-center gap-1.5 sm:gap-2">
+            <!-- Zoom and Appearance Controls (Desktop Only) -->
+            <div class="hidden md:flex items-center gap-1.5 sm:gap-2">
                 <!-- Fit to Width -->
                 <button
                     @click="fitToWidth"
@@ -701,19 +884,46 @@ const submitSummaryRequest = () => {
                     Exit Reader
                 </Link>
             </div>
-        </header>
 
+            <!-- Mobile Settings Button -->
+            <button
+                @click="isSettingsModalOpen = true"
+                class="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-850 text-slate-700 dark:text-slate-350 cursor-pointer"
+                aria-label="Settings"
+            >
+                <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+        </header>
         <!-- Main Content Area (Sidebar + Canvas) -->
         <div class="flex-1 flex overflow-hidden relative">
             
+            <!-- Mobile Sidebar Backdrop Overlay -->
+            <div
+                v-if="sidebarOpen"
+                @click="sidebarOpen = false"
+                class="md:hidden fixed inset-0 bg-slate-900/40 dark:bg-slate-955/60 z-45"
+            ></div>
+
             <!-- Sidebar Panel -->
             <aside
                 v-show="sidebarOpen"
-                class="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-900 flex flex-col shrink-0 z-30 transition-all duration-300"
+                class="w-72 md:w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-900 flex flex-col shrink-0 z-30 transition-all duration-300 max-md:fixed max-md:inset-0 max-md:w-full max-md:h-full max-md:z-50 max-md:shadow-2xl"
             >
                 <!-- Sidebar Header -->
                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3 bg-slate-50 dark:bg-slate-900/60 shrink-0">
                     <span class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider">Outline</span>
+                    <button
+                        @click="sidebarOpen = false"
+                        class="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer"
+                        aria-label="Close outline"
+                    >
+                        <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Sidebar Content -->
@@ -751,20 +961,32 @@ const submitSummaryRequest = () => {
                                         <div class="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
                                     </div>
 
+                                    <!-- Summarize Button in front of the section title (Mobile only) -->
                                     <button
-                                        @click="goToPage(sec.start_page)"
+                                        v-if="sec.start_page"
+                                        @click.stop="summarizeSection(sec)"
+                                        class="md:hidden text-violet-500 hover:text-violet-750 hover:bg-violet-500/10 p-0.5 rounded cursor-pointer shrink-0"
+                                        title="Summarize this section"
+                                    >
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                    </button>
+
+                                    <button
+                                        @click="selectSection(sec)"
                                         class="flex-1 text-left text-xs font-semibold select-none cursor-pointer truncate pr-2 py-0.5"
-                                        :class="currentPageNum >= sec.start_page && (!props.sections[sec.originalIndex+1] || currentPageNum < props.sections[sec.originalIndex+1].start_page) ? 'text-violet-600 dark:text-violet-400' : 'text-slate-600 dark:text-slate-400'"
+                                        :class="currentPageNum >= sec.start_page && (!props.sections[sec.originalIndex+1] || currentPageNum < props.sections[sec.originalIndex+1].start_page) ? 'text-violet-655 dark:text-violet-400' : 'text-slate-600 dark:text-slate-400'"
                                     >
                                         {{ sec.title }}
                                     </button>
                                     
                                     <div class="flex items-center gap-1 shrink-0">
-                                        <!-- Summarize Section Action -->
+                                        <!-- Summarize Section Action (Desktop only - hover) -->
                                         <button
                                             v-if="sec.start_page"
                                             @click.stop="summarizeSection(sec)"
-                                            class="opacity-0 group-hover:opacity-100 transition-opacity text-violet-500 hover:text-violet-700 hover:bg-violet-500/10 p-0.5 rounded cursor-pointer"
+                                            class="hidden md:inline-flex opacity-0 group-hover:opacity-100 transition-opacity text-violet-500 hover:text-violet-700 hover:bg-violet-500/10 p-0.5 rounded cursor-pointer"
                                             title="Summarize this section"
                                         >
                                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -781,7 +1003,7 @@ const submitSummaryRequest = () => {
                                 </div>
                             </div>
                         </div>
-                        <div v-else class="text-center py-12 text-xs text-slate-400 dark:text-slate-600">
+                        <div v-else class="text-center py-12 text-xs text-slate-400 dark:text-slate-655">
                             No outline available for this document.
                         </div>
                     </div>
@@ -789,7 +1011,7 @@ const submitSummaryRequest = () => {
             </aside>
 
             <!-- PDF Page Viewport Container -->
-            <main id="pdf-viewport" class="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-950 flex flex-col items-center gap-6 p-4 relative scroll-smooth">
+            <main id="pdf-viewport" class="flex-1 overflow-auto bg-slate-100 dark:bg-slate-950 p-4 relative scroll-smooth">
                 <div v-if="isPdfLoading" class="absolute inset-0 flex items-center justify-center bg-slate-100/70 dark:bg-slate-950/70 z-10">
                     <div class="flex flex-col items-center gap-3">
                         <div class="animate-spin rounded-full h-9 w-9 border-b-2 border-violet-600"></div>
@@ -813,41 +1035,43 @@ const submitSummaryRequest = () => {
                     </div>
                 </div>
                 
-                <!-- Scrollable Pages List -->
-                <div
-                    v-for="page in pages"
-                    :key="page.num"
-                    :id="'page-container-' + page.num"
-                    :data-page-num="page.num"
-                    class="pdf-page-container relative bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/30 dark:border-slate-800/40 rounded-xl transition-all duration-200 flex items-center justify-center overflow-hidden shrink-0"
-                    :class="{
-                        'cursor-pointer hover:shadow-violet-550/20 hover:scale-[1.01] hover:border-violet-550/50 transition-all duration-250': isSummarizeMode,
-                        'ring-4 ring-emerald-500 dark:ring-emerald-400 border-emerald-500 scale-[1.01]': isSummarizeMode && page.num === summarizeStartPage
-                    }"
-                    :style="getPageContainerStyle(page.num)"
-                    @click="isSummarizeMode && handlePageClick(page.num)"
-                >
-                    <canvas
-                        v-if="page.shouldRender"
-                        :id="'page-canvas-' + page.num"
-                        class="w-full h-full animate-fade-in"
-                        :style="{
-                            filter: isNightReading ? 'invert(1) hue-rotate(180deg)' : 'none'
+                <!-- Scrollable Pages List Wrapper -->
+                <div id="pdf-pages-wrapper" class="flex flex-col items-center gap-6 w-full origin-top transition-transform duration-75">
+                    <div
+                        v-for="page in pages"
+                        :key="page.num"
+                        :id="'page-container-' + page.num"
+                        :data-page-num="page.num"
+                        class="pdf-page-container relative bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/30 dark:border-slate-800/40 rounded-xl transition-all duration-200 flex items-center justify-center overflow-hidden shrink-0"
+                        :class="{
+                            'cursor-pointer hover:shadow-violet-550/20 hover:scale-[1.01] hover:border-violet-550/50 transition-all duration-250': isSummarizeMode,
+                            'ring-4 ring-emerald-500 dark:ring-emerald-400 border-emerald-500 scale-[1.01]': isSummarizeMode && page.num === summarizeStartPage
                         }"
-                    ></canvas>
-                    <div v-else class="absolute inset-0 flex items-center justify-center">
-                        <div class="animate-pulse flex space-x-2 items-center">
-                            <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
-                            <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
-                            <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                        :style="getPageContainerStyle(page.num)"
+                        @click="isSummarizeMode && handlePageClick(page.num)"
+                    >
+                        <canvas
+                            v-if="page.shouldRender"
+                            :id="'page-canvas-' + page.num"
+                            class="w-full h-full animate-fade-in"
+                            :style="{
+                                filter: isNightReading ? 'invert(1) hue-rotate(180deg)' : 'none'
+                            }"
+                        ></canvas>
+                        <div v-else class="absolute inset-0 flex items-center justify-center">
+                            <div class="animate-pulse flex space-x-2 items-center">
+                                <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                                <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                                <div class="h-2 w-2 bg-slate-400 dark:bg-slate-650 rounded-full"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </main>
         </div>
 
-        <!-- Progress Footer Bar -->
-        <footer class="h-10 border-t border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900 px-4 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 z-45 shrink-0">
+        <!-- Progress Footer Bar (Desktop Only) -->
+        <footer class="hidden md:flex h-10 border-t border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900 px-4 items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 z-45 shrink-0">
             <div class="flex items-center gap-3">
                 <span class="font-semibold text-slate-600 dark:text-slate-400">Controls:</span>
                 <span>Space/ArrowRight = Next</span>
@@ -865,6 +1089,51 @@ const submitSummaryRequest = () => {
                 </div>
             </div>
         </footer>
+
+        <!-- Floating Page Indicator (Mobile Only) -->
+        <div class="md:hidden fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2 pointer-events-none">
+            <!-- Subtle touch target region to reveal when hidden -->
+            <transition
+                enter-active-class="transition duration-300 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition duration-200 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+            >
+                <button
+                    v-if="!showFloatingIndicator"
+                    @click="resetInactivityTimer"
+                    class="pointer-events-auto w-10 h-10 rounded-full bg-slate-900/40 dark:bg-slate-850/60 backdrop-blur border border-slate-700/30 dark:border-slate-700/50 flex items-center justify-center text-slate-205 hover:text-white shadow-lg transition-all duration-300 cursor-pointer active:scale-95"
+                    aria-label="Show page progress"
+                >
+                    <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </button>
+            </transition>
+
+            <!-- Active floating progress rectangle -->
+            <transition
+                enter-active-class="transition duration-300 ease-out"
+                enter-from-class="transform translate-y-4 opacity-0 scale-95"
+                enter-to-class="transform translate-y-0 opacity-100 scale-100"
+                leave-active-class="transition duration-200 ease-in"
+                leave-from-class="transform translate-y-0 opacity-100 scale-100"
+                leave-to-class="transform translate-y-4 opacity-0 scale-95"
+            >
+                <div
+                    v-if="showFloatingIndicator"
+                    @click="resetInactivityTimer"
+                    class="pointer-events-auto bg-slate-900/95 dark:bg-slate-900/98 backdrop-blur border border-slate-800 dark:border-slate-850 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300"
+                >
+                    <span class="text-slate-400 font-medium">Page</span>
+                    <span class="text-violet-400 font-extrabold">{{ currentPageNum }}</span>
+                    <span class="text-slate-600 font-medium">/</span>
+                    <span class="text-slate-205 font-semibold">{{ totalPagesNum }}</span>
+                </div>
+            </transition>
+        </div>
         <!-- Predefined Prompts Summarize Modal -->
         <div v-if="isSummarizeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <!-- Modal Backdrop with blur -->
@@ -953,6 +1222,72 @@ const submitSummaryRequest = () => {
                         </svg>
                         <span>{{ isSubmittingSummary ? 'Generating Summary...' : 'Generate Summary' }}</span>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div v-if="isSettingsModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <!-- Modal Backdrop with blur -->
+            <div class="absolute inset-0 bg-slate-900/60 dark:bg-slate-955/80 backdrop-blur-sm transition-all" @click="isSettingsModalOpen = false"></div>
+            
+            <!-- Modal Container -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden relative z-10 transition-all flex flex-col animate-scale-in animate-fade-in">
+                <!-- Modal Header with gradient style -->
+                <div class="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-white flex items-center justify-between shadow-md">
+                    <h3 class="text-sm font-bold flex items-center gap-1.5">
+                        <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Reader Settings
+                    </h3>
+                    <button @click="isSettingsModalOpen = false" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1 transition-all cursor-pointer">
+                        <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Modal Content -->
+                <div class="p-5 space-y-4">
+                    <div>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2.5">Theme Mode</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button
+                                v-for="mode in ['light', 'dark', 'system']"
+                                :key="mode"
+                                @click="applyTheme(mode)"
+                                class="px-3 py-2.5 rounded-xl border text-xs font-bold capitalize transition-all flex flex-col items-center gap-1.5 cursor-pointer"
+                                :class="themeMode === mode
+                                    ? 'bg-violet-500/10 border-violet-500 text-violet-650 dark:text-violet-400 font-extrabold shadow-sm ring-2 ring-violet-500/5'
+                                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400'"
+                            >
+                                <svg v-if="mode === 'light'" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+                                </svg>
+                                <svg v-else-if="mode === 'dark'" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                </svg>
+                                <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                {{ mode }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-150 dark:border-slate-800">
+                        <Link
+                            :href="'/books/' + props.book.id"
+                            class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-955 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Exit Reader
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>
