@@ -101,11 +101,21 @@ class PdfParserService
      *
      * @return array<int, array{title: string, page: int, level: int, end_page: int}>
      */
+    /**
+     * Parse outline using native PHP.
+     *
+     * @return array<int, array{title: string, page: int, level: int, end_page: int}>
+     */
     public function parseUsingPhp(string $filePath): array
     {
         if (! file_exists($filePath)) {
             return [];
         }
+
+        // Increase limits for processing potentially large PDF files on shared hosting
+        @ini_set('memory_limit', '256M');
+        @ini_set('pcre.backtrack_limit', '10000000');
+        @ini_set('pcre.recursion_limit', '10000000');
 
         $pdfData = file_get_contents($filePath);
         if ($pdfData === false) {
@@ -134,7 +144,20 @@ class PdfParserService
                 $objContent = substr($objContent, 0, $streamStart);
             }
 
-            $objects[$objId] = $objContent;
+            // Memory Optimization: Only store structural objects needed for outline resolution
+            if (str_contains($objContent, '/Catalog') ||
+                str_contains($objContent, '/Pages') ||
+                str_contains($objContent, '/Page') ||
+                str_contains($objContent, '/Outlines') ||
+                str_contains($objContent, '/Title') ||
+                str_contains($objContent, '/Dest') ||
+                str_contains($objContent, '/A') ||
+                str_contains($objContent, '/XYZ') ||
+                str_contains($objContent, '/GoTo')
+            ) {
+                $objects[$objId] = $objContent;
+            }
+
             $offset = $endPos + 6;
         }
 
@@ -146,8 +169,13 @@ class PdfParserService
                 break;
             }
         }
-        if (! $rootId && preg_match('/\/Root\s+(\d+)\s+\d+\s+R/', $pdfData, $m)) {
-            $rootId = (int) $m[1];
+        if (! $rootId) {
+            // Fallback: Search from the end of the file for the trailer which contains the Root reference
+            $trailerOffset = max(0, strlen($pdfData) - 100000);
+            $trailerData = substr($pdfData, $trailerOffset);
+            if (preg_match('/\/Root\s+(\d+)\s+\d+\s+R/', $trailerData, $m)) {
+                $rootId = (int) $m[1];
+            }
         }
 
         // Resolve Page Tree to map object IDs to 1-based page numbers
@@ -351,9 +379,19 @@ class PdfParserService
         $bin = pack('H*', $hex);
 
         if (str_starts_with($bin, "\xFE\xFF")) {
-            $decoded = iconv('UTF-16BE', 'UTF-8//IGNORE', substr($bin, 2));
-
-            return $decoded !== false ? $decoded : $bin;
+            $utf16 = substr($bin, 2);
+            if (function_exists('iconv')) {
+                $decoded = iconv('UTF-16BE', 'UTF-8//IGNORE', $utf16);
+                if ($decoded !== false) {
+                    return $decoded;
+                }
+            }
+            if (function_exists('mb_convert_encoding')) {
+                $decoded = mb_convert_encoding($utf16, 'UTF-8', 'UTF-16BE');
+                if ($decoded !== false) {
+                    return $decoded;
+                }
+            }
         }
 
         return $bin;
@@ -382,9 +420,19 @@ class PdfParserService
                 $i++;
             }
             if (str_starts_with($bytes, "\xFE\xFF")) {
-                $decoded = iconv('UTF-16BE', 'UTF-8//IGNORE', substr($bytes, 2));
-
-                return $decoded !== false ? $decoded : $bytes;
+                $utf16 = substr($bytes, 2);
+                if (function_exists('iconv')) {
+                    $decoded = iconv('UTF-16BE', 'UTF-8//IGNORE', $utf16);
+                    if ($decoded !== false) {
+                        return $decoded;
+                    }
+                }
+                if (function_exists('mb_convert_encoding')) {
+                    $decoded = mb_convert_encoding($utf16, 'UTF-8', 'UTF-16BE');
+                    if ($decoded !== false) {
+                        return $decoded;
+                    }
+                }
             }
         }
 
