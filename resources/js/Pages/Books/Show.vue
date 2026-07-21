@@ -233,6 +233,8 @@ const formatPages = (targetPages) => {
 // Summarization modal state
 const rangeStartPage = ref(null);
 const rangeEndPage = ref(null);
+const selectedBookSectionId = ref(null);
+const selectedSectionTitle = ref('');
 const isSummarizeModalOpen = ref(false);
 const selectedPredefinedPrompt = ref('');
 const isSubmittingSummary = ref(false);
@@ -330,8 +332,17 @@ i uploaded the content
 ];
 
 const summarizeSection = (sec) => {
-    rangeStartPage.value = sec.start_page;
-    rangeEndPage.value = sec.end_page || sec.start_page;
+    if (props.book.file_type === 'pdf') {
+        rangeStartPage.value = sec.start_page;
+        rangeEndPage.value = sec.end_page || sec.start_page;
+        selectedBookSectionId.value = null;
+        selectedSectionTitle.value = '';
+    } else {
+        rangeStartPage.value = null;
+        rangeEndPage.value = null;
+        selectedBookSectionId.value = sec.id;
+        selectedSectionTitle.value = sec.title;
+    }
     isSummarizeModalOpen.value = true;
     selectedPredefinedPrompt.value = predefinedPrompts[0].prompt;
 };
@@ -341,11 +352,18 @@ const submitSummaryRequest = () => {
     
     isSubmittingSummary.value = true;
     
-    router.post(`/books/${props.book.id}/summarize`, {
-        start_page: rangeStartPage.value,
-        end_page: rangeEndPage.value,
+    const payload = {
         prompt: selectedPredefinedPrompt.value
-    }, {
+    };
+
+    if (props.book.file_type === 'pdf') {
+        payload.start_page = rangeStartPage.value;
+        payload.end_page = rangeEndPage.value;
+    } else {
+        payload.book_section_id = selectedBookSectionId.value;
+    }
+    
+    router.post(`/books/${props.book.id}/summarize`, payload, {
         preserveScroll: true,
         onSuccess: () => {
             isSubmittingSummary.value = false;
@@ -353,7 +371,9 @@ const submitSummaryRequest = () => {
         },
         onError: (errors) => {
             isSubmittingSummary.value = false;
-            alert(errors.openai || 'An error occurred during summarization.');
+            console.error('Summarize request failed with errors:', errors);
+            const errorMsg = errors.openai || errors.chat || Object.values(errors).join('\n') || 'An error occurred during summarization.';
+            alert(errorMsg);
         }
     });
 };
@@ -802,7 +822,7 @@ const deleteBook = () => {
                                     </button>
 
                                     <button
-                                        v-if="props.book.file_type === 'pdf'"
+                                        v-if="props.book.file_type === 'pdf' || props.book.file_type === 'epub'"
                                         @click="summarizeSection(sec)"
                                         class="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02] flex items-center gap-0.5 shrink-0 font-medium"
                                         title="Summarize Section"
@@ -949,7 +969,8 @@ const deleteBook = () => {
                             </svg>
                             Generate AI Summary
                         </h3>
-                        <p class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Pages {{ rangeStartPage }} to {{ rangeEndPage }} ({{ rangeEndPage - rangeStartPage + 1 }} pages selected)</p>
+                        <p v-if="props.book.file_type === 'pdf'" class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Pages {{ rangeStartPage }} to {{ rangeEndPage }} ({{ rangeEndPage - rangeStartPage + 1 }} pages selected)</p>
+                        <p v-else class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Section: {{ selectedSectionTitle }}</p>
                     </div>
                     <button @click="isSummarizeModalOpen = false" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1 transition-all cursor-pointer">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

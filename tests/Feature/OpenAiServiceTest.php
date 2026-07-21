@@ -174,6 +174,59 @@ class OpenAiServiceTest extends TestCase
     }
 
     /**
+     * Test chat with EPUBs.
+     */
+    public function test_chat_with_epubs_sends_payload_in_specified_format(): void
+    {
+        $mockEpub = "{$this->tempDir}/test.epub";
+        file_put_contents($mockEpub, 'fake epub data');
+
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => 'Summary of the EPUB.',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $service = new OpenAiService('test-key');
+
+        // Test file_url format (default)
+        $result1 = $service->chatWithEpubs('Summarize this', [$mockEpub]);
+        $this->assertEquals('Summary of the EPUB.', $result1);
+
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+            $content = $data['messages'][0]['content'] ?? [];
+            $expectedBase64 = base64_encode('fake epub data');
+
+            return isset($content[1]['type'])
+                && $content[1]['type'] === 'file_url'
+                && ($content[1]['file_url']['url'] ?? '') === "data:application/epub+zip;base64,{$expectedBase64}";
+        });
+
+        // Test document format
+        $result2 = $service->chatWithEpubs('Summarize this', [$mockEpub], null, 'document');
+        $this->assertEquals('Summary of the EPUB.', $result2);
+
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+            $content = $data['messages'][0]['content'] ?? [];
+            $expectedBase64 = base64_encode('fake epub data');
+
+            return isset($content[1]['type'])
+                && $content[1]['type'] === 'document'
+                && ($content[1]['source']['type'] ?? '') === 'base64'
+                && ($content[1]['source']['media_type'] ?? '') === 'application/epub+zip'
+                && ($content[1]['source']['data'] ?? '') === $expectedBase64;
+        });
+    }
+
+    /**
      * Test error handling when API fails.
      */
     public function test_chat_throws_exception_on_api_failure(): void

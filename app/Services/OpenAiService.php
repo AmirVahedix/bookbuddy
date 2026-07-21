@@ -191,6 +191,180 @@ class OpenAiService
     }
 
     /**
+     * Send a prompt with multiple local EPUB files to the chat completion API.
+     *
+     * Supports multiple document format payloads for different custom OpenAI-compatible endpoints:
+     * - 'file_url': standard Data URI structure (e.g. data:application/epub+zip;base64,...)
+     * - 'document': Anthropic/Gemini-compatible document block format
+     *
+     * @param  array<int, string>  $epubPaths
+     * @param  string  $format  The format to send the EPUBs ('file_url' or 'document')
+     *
+     * @throws Exception
+     */
+    public function chatWithEpubs(string $prompt, array $epubPaths, ?string $model = null, string $format = 'file_url'): string
+    {
+        if (! in_array($format, ['file_url', 'document', 'file'])) {
+            throw new InvalidArgumentException("Unsupported EPUB payload format: {$format}");
+        }
+
+        $content = [
+            [
+                'type' => 'text',
+                'text' => $prompt,
+            ],
+        ];
+
+        foreach ($epubPaths as $path) {
+            if (! file_exists($path)) {
+                throw new InvalidArgumentException("EPUB file not found: {$path}");
+            }
+
+            $mimeType = mime_content_type($path);
+            if ($mimeType !== 'application/epub+zip') {
+                $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                if ($extension !== 'epub') {
+                    throw new InvalidArgumentException("File is not a valid EPUB: {$path}");
+                }
+                $mimeType = 'application/epub+zip';
+            }
+
+            $base64Data = base64_encode(file_get_contents($path));
+
+            if ($format === 'file_url') {
+                $content[] = [
+                    'type' => 'file_url',
+                    'file_url' => [
+                        'url' => "data:application/epub+zip;base64,{$base64Data}",
+                    ],
+                ];
+            } elseif ($format === 'document') {
+                $content[] = [
+                    'type' => 'document',
+                    'source' => [
+                        'type' => 'base64',
+                        'media_type' => 'application/epub+zip',
+                        'data' => $base64Data,
+                    ],
+                ];
+            } else {
+                $content[] = [
+                    'type' => 'file',
+                    'file' => [
+                        'filename' => basename($path),
+                        'file_data' => "data:application/epub+zip;base64,{$base64Data}",
+                    ],
+                ];
+            }
+        }
+
+        $response = $this->request()
+            ->post('/chat/completions', [
+                'model' => $model ?? $this->defaultModel,
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => $content,
+                    ],
+                ],
+            ]);
+
+        return $this->parseResponse($response);
+    }
+
+    /**
+     * Send a full chat conversation with an EPUB attached to the first message.
+     *
+     * @param  array<int, array{role: string, content: string}>  $chatHistory
+     * @param  array<int, string>  $epubPaths
+     * @param  string  $format  The format to send the EPUBs ('file_url' or 'document')
+     *
+     * @throws Exception
+     */
+    public function chatConversationWithEpub(
+        string $initialPrompt,
+        array $epubPaths,
+        array $chatHistory,
+        ?string $model = null,
+        string $format = 'file_url'
+    ): string {
+        if (! in_array($format, ['file_url', 'document', 'file'])) {
+            throw new InvalidArgumentException("Unsupported EPUB payload format: {$format}");
+        }
+
+        $firstContent = [
+            [
+                'type' => 'text',
+                'text' => $initialPrompt,
+            ],
+        ];
+
+        foreach ($epubPaths as $path) {
+            if (! file_exists($path)) {
+                throw new InvalidArgumentException("EPUB file not found: {$path}");
+            }
+
+            $mimeType = mime_content_type($path);
+            if ($mimeType !== 'application/epub+zip') {
+                $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                if ($extension !== 'epub') {
+                    throw new InvalidArgumentException("File is not a valid EPUB: {$path}");
+                }
+                $mimeType = 'application/epub+zip';
+            }
+
+            $base64Data = base64_encode(file_get_contents($path));
+
+            if ($format === 'file_url') {
+                $firstContent[] = [
+                    'type' => 'file_url',
+                    'file_url' => [
+                        'url' => "data:application/epub+zip;base64,{$base64Data}",
+                    ],
+                ];
+            } elseif ($format === 'document') {
+                $firstContent[] = [
+                    'type' => 'document',
+                    'source' => [
+                        'type' => 'base64',
+                        'media_type' => 'application/epub+zip',
+                        'data' => $base64Data,
+                    ],
+                ];
+            } else {
+                $firstContent[] = [
+                    'type' => 'file',
+                    'file' => [
+                        'filename' => basename($path),
+                        'file_data' => "data:application/epub+zip;base64,{$base64Data}",
+                    ],
+                ];
+            }
+        }
+
+        $messages = [];
+        $messages[] = [
+            'role' => 'user',
+            'content' => $firstContent,
+        ];
+
+        foreach ($chatHistory as $msg) {
+            $messages[] = [
+                'role' => $msg['role'],
+                'content' => $msg['content'],
+            ];
+        }
+
+        $response = $this->request()
+            ->post('/chat/completions', [
+                'model' => $model ?? $this->defaultModel,
+                'messages' => $messages,
+            ]);
+
+        return $this->parseResponse($response);
+    }
+
+    /**
      * Send a full chat conversation with a PDF attached to the first message.
      *
      * @param  array<int, array{role: string, content: string}>  $chatHistory

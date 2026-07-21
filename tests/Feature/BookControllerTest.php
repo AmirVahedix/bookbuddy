@@ -469,6 +469,49 @@ class BookControllerTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_summarize_epub_section(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $htmlFiles = [
+            'text/chapter1.xhtml' => '<html><body><h1>Chapter 1</h1><p>Chapter 1 content</p></body></html>',
+        ];
+        $file = $this->createMockEpubFile('book.epub', $htmlFiles);
+
+        $book = Book::create([
+            'title' => 'Test EPUB Book',
+            'author' => 'Test Author',
+            'file_type' => 'epub',
+        ]);
+        $book->addMedia($file)->toMediaCollection('file');
+
+        $section = BookSection::create([
+            'book_id' => $book->id,
+            'title' => 'Chapter 1',
+            'section_identifier' => 'text/chapter1.xhtml',
+            'order' => 1,
+        ]);
+
+        config(['services.openai.api_key' => '']);
+
+        $response = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
+            'book_section_id' => $section->id,
+            'prompt' => 'Provide a core concepts summary',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('summaries', [
+            'book_id' => $book->id,
+            'book_section_id' => $section->id,
+            'prompt_used' => 'Provide a core concepts summary',
+        ]);
+
+        $summary = Summary::where('book_section_id', $section->id)->first();
+        $this->assertNotNull($summary);
+        $this->assertStringContainsString('simulated summary', $summary->generated_summary);
+    }
+
     public function test_authenticated_user_can_access_summaries_reader_page(): void
     {
         $user = User::factory()->create();

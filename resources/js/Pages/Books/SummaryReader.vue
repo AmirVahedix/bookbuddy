@@ -202,7 +202,7 @@ watch(activeSummaryId, () => {
                             <!-- Header metadata -->
                             <div class="border-b border-slate-100 dark:border-slate-800 pb-5">
                                 <div class="flex flex-wrap items-center gap-2 mb-3">
-                                    <span class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
+                                    <span v-if="props.book.file_type === 'pdf'" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
                                         {{ formatPages(activeSummary.target_pages) }}
                                     </span>
                                     <span v-if="activeSummary.section_title" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/20">
@@ -217,7 +217,7 @@ watch(activeSummaryId, () => {
                                 </div>
 
                                 <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                                    Summary of {{ formatPages(activeSummary.target_pages) }}
+                                    Summary of {{ props.book.file_type === 'pdf' ? formatPages(activeSummary.target_pages) : (activeSummary.section_title || 'Section') }}
                                 </h2>
                                 <p class="text-xs text-slate-400 mt-2 font-medium">Generated {{ activeSummary.created_at }}</p>
                             </div>

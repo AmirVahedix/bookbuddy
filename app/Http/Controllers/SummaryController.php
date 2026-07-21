@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BookFileType;
 use App\Models\Book;
 use App\Models\Summary;
+use App\Services\EpubExtractorService;
 use App\Services\OpenAiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,8 +57,12 @@ class SummaryController extends Controller
     /**
      * Send a new message to the LLM about a specific summary's context.
      */
-    public function chat(Request $request, Summary $summary, OpenAiService $openAiService): RedirectResponse
-    {
+    public function chat(
+        Request $request,
+        Summary $summary,
+        OpenAiService $openAiService,
+        EpubExtractorService $epubExtractorService
+    ): RedirectResponse {
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
         ]);
@@ -71,7 +77,7 @@ class SummaryController extends Controller
 
         if (empty($apiKey)) {
             // Mock offline response
-            $mockResponse = "This is a simulated AI response about the summary content for your query: \"{$validated['message']}\".\n\nSince no OpenAI API Key was provided, here is how the model would analyze it:\n\n1. **Context**: Page range ".implode(', ', $summary->target_pages ?? []).".\n2. **Analysis**: We've analyzed the core concepts in this section to address your query.\n3. **Structured Summary Table**:\n\n| Item | Description | Status |\n|---|---|---|\n| Query | ".$validated['message']." | Addressed |\n| Memory | Retained from previous turns | Active |\n| Caching | Prefix matched successfully | Cached |";
+            $mockResponse = "This is a simulated AI response about the summary content for your query: \"{$validated['message']}\".\n\nSince no OpenAI API Key was provided, here is how the model would analyze it:\n\n1. **Context**: ".($summary->book?->file_type === BookFileType::Pdf ? 'Page range '.implode(', ', $summary->target_pages ?? []) : 'Section '.($summary->bookSection?->title ?? '')).".\n2. **Analysis**: We've analyzed the core concepts in this section to address your query.\n3. **Structured Summary Table**:\n\n| Item | Description | Status |\n|---|---|---|\n| Query | ".$validated['message']." | Addressed |\n| Memory | Retained from previous turns | Active |\n| Caching | Prefix matched successfully | Cached |";
 
             $summary->chatMessages()->create([
                 'role' => 'assistant',
@@ -82,55 +88,71 @@ class SummaryController extends Controller
             return redirect()->back();
         }
 
-        // 2. Extract PDF segment if target pages are set
         $book = $summary->book;
         $targetPages = $summary->target_pages ?? [];
-        $pdfPath = $book->getFirstMediaPath('file');
-        $tempPdfPath = null;
+        $tempFilePath = null;
+        $fileToSend = null;
 
-        if (! empty($targetPages) && $pdfPath && file_exists($pdfPath)) {
-            try {
-                $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
-                if (! file_exists($pythonPath)) {
-                    $pythonPath = 'python3';
+        if ($book->file_type === BookFileType::Pdf) {
+            $pdfPath = $book->getFirstMediaPath('file');
+            if (! empty($targetPages) && $pdfPath && file_exists($pdfPath)) {
+                try {
+                    $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
+                    if (! file_exists($pythonPath)) {
+                        $pythonPath = 'python3';
+                    }
+                    $scriptPath = base_path('app/Services/pdf_page_extractor.py');
+
+                    $tempDir = storage_path('app/tmp');
+                    if (! file_exists($tempDir)) {
+                        mkdir($tempDir, 0755, true);
+                    }
+                    $tempFilePath = $tempDir.'/'.uniqid('chat_').'.pdf';
+
+                    $result = Process::run([
+                        $pythonPath,
+                        $scriptPath,
+                        $pdfPath,
+                        $tempFilePath,
+                        implode(',', $targetPages),
+                    ]);
+
+                    if ($result->successful() && file_exists($tempFilePath)) {
+                        $fileToSend = $tempFilePath;
+                    } else {
+                        Log::error('PDF page extractor script failed: '.$result->errorOutput());
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error extracting PDF pages: '.$e->getMessage());
                 }
-                $scriptPath = base_path('app/Services/pdf_page_extractor.py');
-
-                $tempDir = storage_path('app/tmp');
-                if (! file_exists($tempDir)) {
-                    mkdir($tempDir, 0755, true);
-                }
-                $tempPdfPath = $tempDir.'/'.uniqid('chat_').'.pdf';
-
-                $result = Process::run([
-                    $pythonPath,
-                    $scriptPath,
-                    $pdfPath,
-                    $tempPdfPath,
-                    implode(',', $targetPages),
-                ]);
-
-                if (! $result->successful() || ! file_exists($tempPdfPath)) {
-                    Log::error('PDF page extractor script failed: '.$result->errorOutput());
-                    $tempPdfPath = null;
-                }
-            } catch (\Exception $e) {
-                Log::error('Error extracting PDF pages: '.$e->getMessage());
-                $tempPdfPath = null;
             }
+            if (! $fileToSend) {
+                $fileToSend = $pdfPath;
+            }
+            $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached pages (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached PDF document.';
+        } else {
+            $epubPath = $book->getFirstMediaPath('file');
+            if ($summary->bookSection && $epubPath && file_exists($epubPath)) {
+                try {
+                    $tempFilePath = $epubExtractorService->extractSectionToPdf($book, $summary->bookSection);
+                    if ($tempFilePath && file_exists($tempFilePath)) {
+                        $fileToSend = $tempFilePath;
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error extracting EPUB section: '.$e->getMessage());
+                }
+            }
+            if (! $fileToSend) {
+                $fileToSend = $epubPath;
+            }
+            $pagesContext = $tempFilePath ? 'Focus ONLY on the attached PDF (which is section "'.$summary->bookSection->title.'" of the book converted to PDF).' : 'Analyze the attached EPUB document.';
         }
 
         try {
-            $pdfToSend = $tempPdfPath ?: $pdfPath;
-            $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached pages (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached PDF document.';
-
             // Build the initial prompt that was used to generate the summary
             $initialPrompt = "{$pagesContext}\n\nInitial summary request: {$summary->prompt_used}\n\nIMPORTANT: Please ensure the response is strictly valid Markdown syntax without enclosing it in triple backticks unless required for code snippets.";
 
             // Build the chat history:
-            // Message 0 is the initial system summary request + PDF.
-            // Message 1 is the assistant's initial generated summary.
-            // Subsequent messages are from the database.
             $chatHistory = [];
             // Add the initial generated summary as the assistant's first turn response
             $chatHistory[] = [
@@ -151,13 +173,23 @@ class SummaryController extends Controller
             }
 
             // Call LLM
-            $reply = $openAiService->chatConversationWithPdf(
-                $initialPrompt,
-                $pdfToSend ? [$pdfToSend] : [],
-                $chatHistory,
-                null,
-                config('services.openai.pdf_format', 'file')
-            );
+            if ($book->file_type === BookFileType::Pdf || $tempFilePath) {
+                $reply = $openAiService->chatConversationWithPdf(
+                    $initialPrompt,
+                    $fileToSend ? [$fileToSend] : [],
+                    $chatHistory,
+                    null,
+                    config('services.openai.pdf_format', 'file')
+                );
+            } else {
+                $reply = $openAiService->chatConversationWithEpub(
+                    $initialPrompt,
+                    $fileToSend ? [$fileToSend] : [],
+                    $chatHistory,
+                    null,
+                    config('services.openai.pdf_format', 'file')
+                );
+            }
 
             // Save assistant reply
             $summary->chatMessages()->create([
@@ -172,15 +204,15 @@ class SummaryController extends Controller
             // Delete user message we just saved so they can retry
             $summary->chatMessages()->latest()->first()?->delete();
 
-            if ($tempPdfPath && file_exists($tempPdfPath)) {
-                unlink($tempPdfPath);
+            if ($tempFilePath && file_exists($tempFilePath)) {
+                unlink($tempFilePath);
             }
 
             return redirect()->back()->withErrors(['chat' => 'AI Error: '.$e->getMessage()]);
         }
 
-        if ($tempPdfPath && file_exists($tempPdfPath)) {
-            unlink($tempPdfPath);
+        if ($tempFilePath && file_exists($tempFilePath)) {
+            unlink($tempFilePath);
         }
 
         return redirect()->back();
