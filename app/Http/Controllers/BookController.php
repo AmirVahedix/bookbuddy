@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\BookFileType;
 use App\Enums\BookReadingStatus;
 use App\Http\Requests\StoreBookRequest;
+use App\Http\Requests\UpdateBookRequest;
 use App\Models\Book;
 use App\Models\BookSection;
 use App\Models\Summary;
@@ -166,6 +167,51 @@ class BookController extends Controller
     }
 
     /**
+     * Show the form for editing the specified book.
+     */
+    public function edit(Book $book): Response
+    {
+        $book->load('tags');
+
+        $tags = Tag::orderBy('name')->get(['id', 'name']);
+
+        return Inertia::render('Books/Edit', [
+            'book' => $this->transformBook($book),
+            'tags' => $tags,
+        ]);
+    }
+
+    /**
+     * Update the specified book in storage.
+     */
+    public function update(UpdateBookRequest $request, Book $book): RedirectResponse
+    {
+        $book->update([
+            'title' => $request->validated('title'),
+            'author' => $request->validated('author'),
+        ]);
+
+        if ($request->hasFile('thumbnail')) {
+            $book->addMedia($request->file('thumbnail'))->toMediaCollection('thumbnail');
+        } elseif ($request->boolean('remove_thumbnail')) {
+            $book->clearMediaCollection('thumbnail');
+        }
+
+        $tagNames = $request->input('tags', []);
+        if (is_array($tagNames)) {
+            $tagIds = collect($tagNames)
+                ->map(fn (string $name) => trim($name))
+                ->filter()
+                ->map(fn (string $name) => Tag::firstOrCreate(['name' => $name])->id);
+            $book->tags()->sync($tagIds);
+        } else {
+            $book->tags()->detach();
+        }
+
+        return redirect()->route('books.show', $book);
+    }
+
+    /**
      * Display the specified book.
      */
     public function show(Book $book): Response
@@ -185,6 +231,7 @@ class BookController extends Controller
                 'end_page' => $s->end_page,
                 'level' => $s->level,
                 'order' => $s->order,
+                'is_read' => (bool) $s->is_read,
             ]);
 
         $summaries = $book->summaries()
@@ -231,6 +278,7 @@ class BookController extends Controller
                 'level' => $s->level,
                 'order' => $s->order,
                 'has_summary' => $s->summaries_count > 0,
+                'is_read' => (bool) $s->is_read,
             ]);
 
         $summaries = $book->summaries()
@@ -335,6 +383,55 @@ class BookController extends Controller
         }
 
         $book->update($updateData);
+
+        return redirect()->back();
+    }
+
+    /**
+     * Toggle the read status of a section.
+     */
+    public function toggleSectionRead(Book $book, BookSection $section): RedirectResponse
+    {
+        if ($section->book_id !== $book->id) {
+            abort(404);
+        }
+
+        $newReadStatus = ! $section->is_read;
+
+        $section->update([
+            'is_read' => $newReadStatus,
+        ]);
+
+        if ($newReadStatus) {
+            $parentLevel = $section->level ?? 1;
+            $allSections = $book->sections()->orderBy('order')->get();
+
+            $childIds = [];
+            $foundTarget = false;
+
+            foreach ($allSections as $s) {
+                if ($s->id === $section->id) {
+                    $foundTarget = true;
+
+                    continue;
+                }
+
+                if ($foundTarget) {
+                    $level = $s->level ?? 1;
+                    if ($level > $parentLevel) {
+                        $childIds[] = $s->id;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            if (! empty($childIds)) {
+                BookSection::whereIn('id', $childIds)->update([
+                    'is_read' => true,
+                ]);
+            }
+        }
 
         return redirect()->back();
     }

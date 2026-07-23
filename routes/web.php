@@ -22,10 +22,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/books/create', [BookController::class, 'create'])->name('books.create');
     Route::post('/books', [BookController::class, 'store'])->name('books.store');
     Route::get('/books/{book}', [BookController::class, 'show'])->name('books.show');
+    Route::get('/books/{book}/edit', [BookController::class, 'edit'])->name('books.edit');
+    Route::put('/books/{book}', [BookController::class, 'update'])->name('books.update');
     Route::get('/books/{book}/read', [BookController::class, 'read'])->name('books.read');
     Route::get('/books/{book}/summaries/{summary?}', [BookController::class, 'summaries'])->name('books.summaries');
     Route::patch('/books/{book}/progress', [BookController::class, 'updateProgress'])->name('books.update-progress');
     Route::post('/books/{book}/summarize', [BookController::class, 'summarize'])->name('books.summarize');
+    Route::patch('/books/{book}/sections/{section}/toggle-read', [BookController::class, 'toggleSectionRead'])->name('books.sections.toggle-read');
     Route::delete('/books/{book}', [BookController::class, 'destroy'])->name('books.destroy');
     Route::post('/summaries/{summary}/chat', [SummaryController::class, 'chat'])->name('summaries.chat');
     Route::delete('/summaries/{summary}/chat', [SummaryController::class, 'clearChat'])->name('summaries.clear-chat');

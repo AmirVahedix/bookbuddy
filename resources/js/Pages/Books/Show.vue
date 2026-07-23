@@ -138,12 +138,27 @@ const submitProgress = () => {
     });
 };
 
-const setPageRangeFromSection = (sec) => {
-    if (sec.start_page && sec.end_page) {
-        startPage.value = sec.start_page;
-        endPage.value = sec.end_page;
-        selectionMode.value = 'range';
-    }
+const toggleSectionRead = (sec) => {
+    router.patch(`/books/${props.book.id}/sections/${sec.id}/toggle-read`, {}, {
+        preserveScroll: true,
+    });
+};
+
+// Hold Tooltip state for Section Page Ranges
+const activeTooltipSectionId = ref(null);
+let holdTimer = null;
+
+const startHold = (sec) => {
+    if (!sec.start_page) return;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+        activeTooltipSectionId.value = sec.id;
+    }, 250);
+};
+
+const endHold = () => {
+    clearTimeout(holdTimer);
+    activeTooltipSectionId.value = null;
 };
 
 // Preset LLM prompts
@@ -626,6 +641,16 @@ const deleteBook = () => {
                                     PDF Reader
                                 </Link>
 
+                                <Link
+                                    :href="'/books/' + props.book.id + '/edit'"
+                                    class="inline-flex items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 px-5 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 shadow-sm transition-all duration-200 cursor-pointer"
+                                >
+                                    <svg class="h-4.5 w-4.5 mr-2 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Edit Book
+                                </Link>
+
                                 <button
                                     @click="confirmDeleteBook"
                                     class="inline-flex items-center justify-center rounded-2xl border border-rose-200 dark:border-rose-950 hover:border-rose-300 dark:hover:border-rose-800 bg-white hover:bg-rose-50 dark:bg-slate-900/60 dark:hover:bg-rose-950/20 px-5 py-3 text-sm font-bold text-rose-600 dark:text-rose-400 shadow-sm transition-all duration-200 cursor-pointer"
@@ -647,7 +672,7 @@ const deleteBook = () => {
                 <!-- Summaries Section (Left 8 columns) -->
                 <div class="lg:col-span-8 flex flex-col gap-8 animate-fade-in">
                     <!-- Book Summaries List Card -->
-                    <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
+                    <div class="order-2 lg:order-1 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
                         <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4 gap-4">
                             <div>
                                 <h2 class="font-black text-xl text-slate-900 dark:text-white flex items-center gap-2">
@@ -761,7 +786,7 @@ const deleteBook = () => {
                     </div>
 
                     <!-- Book Sections / Chapters Table of Contents -->
-                    <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
+                    <div class="order-1 lg:order-2 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
                         <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                             <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
@@ -799,38 +824,58 @@ const deleteBook = () => {
                                         <div class="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
                                     </div>
 
-                                    <span
-                                        @click="sec.hasChildren ? toggleSection(sec.id) : null"
-                                        class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium"
-                                        :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'cursor-pointer': sec.hasChildren }"
-                                    >
-                                        {{ sec.title }}
-                                    </span>
+                                    <div class="relative flex items-center min-w-0 flex-1">
+                                        <span
+                                            @mousedown="startHold(sec)"
+                                            @mouseup="endHold"
+                                            @mouseleave="endHold"
+                                            @touchstart.passive="startHold(sec)"
+                                            @touchend="endHold"
+                                            @touchcancel="endHold"
+                                            @click="sec.hasChildren ? toggleSection(sec.id) : null"
+                                            class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium"
+                                            :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'cursor-pointer': sec.hasChildren, 'text-emerald-700 dark:text-emerald-400': sec.is_read }"
+                                            :title="sec.start_page ? `Pages: ${sec.start_page}-${sec.end_page || sec.start_page}` : ''"
+                                        >
+                                            {{ sec.title }}
+                                        </span>
+
+                                        <!-- Hold Tooltip Popup -->
+                                        <transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+                                            <div
+                                                v-if="sec.start_page && activeTooltipSectionId === sec.id"
+                                                class="absolute -top-7 left-0 z-30 px-2 py-0.5 text-[10px] font-extrabold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 rounded-md shadow-lg pointer-events-none whitespace-nowrap flex items-center gap-1"
+                                            >
+                                                <span>p. {{ sec.start_page }}-{{ sec.end_page || sec.start_page }}</span>
+                                            </div>
+                                        </transition>
+                                    </div>
                                 </div>
                                 <div class="flex items-center gap-1.5 shrink-0">
-                                    <span v-if="sec.start_page" class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mr-1">
-                                        p. {{ sec.start_page }}-{{ sec.end_page || sec.start_page }}
-                                    </span>
-                                    
-                                    <button
-                                        v-if="props.book.file_type === 'pdf'"
-                                        @click="setPageRangeFromSection(sec)"
-                                        class="px-2 py-0.5 text-[9px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 hover:border-violet-500/50 hover:bg-violet-500/5 text-slate-500 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all cursor-pointer"
-                                        title="Select Page Range"
-                                    >
-                                        Select
-                                    </button>
-
+                                    <!-- Summarize Icon Button -->
                                     <button
                                         v-if="props.book.file_type === 'pdf' || props.book.file_type === 'epub'"
                                         @click="summarizeSection(sec)"
-                                        class="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02] flex items-center gap-0.5 shrink-0 font-medium"
+                                        class="p-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all cursor-pointer shadow-sm hover:scale-105 flex items-center justify-center shrink-0"
                                         title="Summarize Section"
                                     >
-                                        <svg class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                                         </svg>
-                                        <span>Sum</span>
+                                    </button>
+
+                                    <!-- Mark as Read Icon Button -->
+                                    <button
+                                        @click="toggleSectionRead(sec)"
+                                        class="p-1.5 rounded-lg transition-all cursor-pointer shadow-sm hover:scale-105 flex items-center justify-center shrink-0 border"
+                                        :class="sec.is_read 
+                                            ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20' 
+                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/30'"
+                                        :title="sec.is_read ? 'Mark as Unread' : 'Mark as Read'"
+                                    >
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>

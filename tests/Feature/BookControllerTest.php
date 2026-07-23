@@ -587,6 +587,173 @@ class BookControllerTest extends TestCase
         $this->assertCount(0, $book->media()->get());
     }
 
+    public function test_user_can_toggle_section_read_status(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+        $section = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'is_read' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patch("/books/{$book->id}/sections/{$section->id}/toggle-read");
+
+        $response->assertRedirect();
+        $this->assertTrue($section->fresh()->is_read);
+
+        $response2 = $this->actingAs($user)
+            ->patch("/books/{$book->id}/sections/{$section->id}/toggle-read");
+
+        $response2->assertRedirect();
+        $this->assertFalse($section->fresh()->is_read);
+    }
+
+    public function test_book_show_includes_is_read_in_sections_prop(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+        $section = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'is_read' => true,
+        ]);
+
+        $response = $this->actingAs($user)->get("/books/{$book->id}");
+
+        $response->assertStatus(200);
+        $response->assertInertia(function ($page) use ($section) {
+            $page->component('Books/Show')
+                ->has('sections', 1)
+                ->where('sections.0.id', $section->id)
+                ->where('sections.0.is_read', true);
+        });
+    }
+
+    public function test_marking_parent_section_as_read_marks_all_its_children_as_read(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        $parent = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'order' => 1,
+            'level' => 1,
+            'is_read' => false,
+        ]);
+
+        $child1 = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'order' => 2,
+            'level' => 2,
+            'is_read' => false,
+        ]);
+
+        $child2 = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'order' => 3,
+            'level' => 3,
+            'is_read' => false,
+        ]);
+
+        $nextChapter = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'order' => 4,
+            'level' => 1,
+            'is_read' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patch("/books/{$book->id}/sections/{$parent->id}/toggle-read");
+
+        $response->assertRedirect();
+        $this->assertTrue($parent->fresh()->is_read);
+        $this->assertTrue($child1->fresh()->is_read);
+        $this->assertTrue($child2->fresh()->is_read);
+        $this->assertFalse($nextChapter->fresh()->is_read);
+    }
+
+    public function test_unauthenticated_user_cannot_access_edit_book_page_or_update_book(): void
+    {
+        $book = Book::factory()->create();
+
+        $this->get("/books/{$book->id}/edit")->assertRedirect('/login');
+        $this->put("/books/{$book->id}", ['title' => 'Updated Title'])->assertRedirect('/login');
+    }
+
+    public function test_authenticated_user_can_access_edit_book_page(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+        $tag = Tag::factory()->create(['name' => 'Fiction']);
+        $book->tags()->attach($tag);
+
+        $response = $this->actingAs($user)->get("/books/{$book->id}/edit");
+
+        $response->assertStatus(200);
+        $response->assertInertia(function ($page) use ($book) {
+            $page->component('Books/Edit')
+                ->where('book.id', $book->id)
+                ->has('book.tags', 1)
+                ->has('tags');
+        });
+    }
+
+    public function test_authenticated_user_can_update_book_title_author_tags_and_cover(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $book = Book::factory()->create([
+            'title' => 'Original Title',
+            'author' => 'Original Author',
+        ]);
+
+        $newThumbnail = UploadedFile::fake()->image('new_cover.jpg', 600, 800);
+
+        $response = $this->actingAs($user)->put("/books/{$book->id}", [
+            'title' => 'Updated Title',
+            'author' => 'Updated Author',
+            'thumbnail' => $newThumbnail,
+            'tags' => ['UpdatedTag1', 'UpdatedTag2'],
+        ]);
+
+        $response->assertRedirect("/books/{$book->id}");
+
+        $this->assertDatabaseHas('books', [
+            'id' => $book->id,
+            'title' => 'Updated Title',
+            'author' => 'Updated Author',
+        ]);
+
+        $book->refresh();
+        $this->assertTrue($book->hasMedia('thumbnail'));
+        $this->assertEquals('new_cover.jpg', $book->getFirstMedia('thumbnail')->file_name);
+
+        $this->assertCount(2, $book->tags);
+        $this->assertTrue($book->tags->contains('name', 'UpdatedTag1'));
+        $this->assertTrue($book->tags->contains('name', 'UpdatedTag2'));
+    }
+
+    public function test_authenticated_user_can_remove_book_cover(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+
+        $thumbnail = UploadedFile::fake()->image('cover.jpg', 600, 800);
+        $book->addMedia($thumbnail)->toMediaCollection('thumbnail');
+        $this->assertTrue($book->hasMedia('thumbnail'));
+
+        $response = $this->actingAs($user)->put("/books/{$book->id}", [
+            'title' => $book->title,
+            'author' => $book->author,
+            'remove_thumbnail' => true,
+        ]);
+
+        $response->assertRedirect("/books/{$book->id}");
+        $book->refresh();
+        $this->assertFalse($book->hasMedia('thumbnail'));
+    }
+
     protected function createMockEpubFile(string $filename, array $htmlFilesContent): UploadedFile
     {
         $tempFile = tempnam(sys_get_temp_dir(), 'epub');

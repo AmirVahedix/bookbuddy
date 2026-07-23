@@ -28,6 +28,7 @@ class BookSectionFactory extends Factory
             'start_page' => $startPage,
             'end_page' => $startPage + fake()->numberBetween(10, 50),
             'order' => $chapterNum,
+            'is_read' => false,
         ];
     }
 }
