@@ -144,21 +144,33 @@ const toggleSectionRead = (sec) => {
     });
 };
 
-// Hold Tooltip state for Section Page Ranges
-const activeTooltipSectionId = ref(null);
-let holdTimer = null;
+// Section Details Modal
+const activeSectionModal = ref(null);
+const isDeletingSection = ref(false);
 
-const startHold = (sec) => {
-    if (!sec.start_page) return;
-    clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => {
-        activeTooltipSectionId.value = sec.id;
-    }, 250);
+const openSectionModal = (sec) => {
+    activeSectionModal.value = sec;
 };
 
-const endHold = () => {
-    clearTimeout(holdTimer);
-    activeTooltipSectionId.value = null;
+const closeSectionModal = () => {
+    activeSectionModal.value = null;
+    isDeletingSection.value = false;
+};
+
+const deleteSection = (sec) => {
+    if (!sec) return;
+    if (confirm(`Are you sure you want to delete "${sec.title}"? It will be removed from your Table of Contents.`)) {
+        isDeletingSection.value = true;
+        router.delete(`/books/${props.book.id}/sections/${sec.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeSectionModal();
+            },
+            onFinish: () => {
+                isDeletingSection.value = false;
+            },
+        });
+    }
 };
 
 // Preset LLM prompts
@@ -794,7 +806,7 @@ const deleteBook = () => {
                             Table of Contents
                         </h2>
 
-                        <div v-if="visibleSections.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[400px] overflow-y-auto pr-1">
+                        <div v-if="visibleSections.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800/60">
                             <div
                                 v-for="sec in visibleSections"
                                 :key="sec.id"
@@ -824,32 +836,15 @@ const deleteBook = () => {
                                         <div class="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
                                     </div>
 
-                                    <div class="relative flex items-center min-w-0 flex-1">
-                                        <span
-                                            @mousedown="startHold(sec)"
-                                            @mouseup="endHold"
-                                            @mouseleave="endHold"
-                                            @touchstart.passive="startHold(sec)"
-                                            @touchend="endHold"
-                                            @touchcancel="endHold"
-                                            @click="sec.hasChildren ? toggleSection(sec.id) : null"
-                                            class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium"
-                                            :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'cursor-pointer': sec.hasChildren, 'text-emerald-700 dark:text-emerald-400': sec.is_read }"
-                                            :title="sec.start_page ? `Pages: ${sec.start_page}-${sec.end_page || sec.start_page}` : ''"
-                                        >
-                                            {{ sec.title }}
-                                        </span>
-
-                                        <!-- Hold Tooltip Popup -->
-                                        <transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-                                            <div
-                                                v-if="sec.start_page && activeTooltipSectionId === sec.id"
-                                                class="absolute -top-7 left-0 z-30 px-2 py-0.5 text-[10px] font-extrabold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 rounded-md shadow-lg pointer-events-none whitespace-nowrap flex items-center gap-1"
-                                            >
-                                                <span>p. {{ sec.start_page }}-{{ sec.end_page || sec.start_page }}</span>
-                                            </div>
-                                        </transition>
-                                    </div>
+                                    <span
+                                        @click="sec.hasChildren ? toggleSection(sec.id) : null"
+                                        @dblclick="openSectionModal(sec)"
+                                        class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium min-w-0 flex-1 cursor-pointer"
+                                        :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'text-emerald-700 dark:text-emerald-400': sec.is_read }"
+                                        title="Double-click to view section details"
+                                    >
+                                        {{ sec.title }}
+                                    </span>
                                 </div>
                                 <div class="flex items-center gap-1.5 shrink-0">
                                     <!-- Summarize Icon Button -->
@@ -1138,6 +1133,102 @@ const deleteBook = () => {
             </div>
         </div>
     </div>
+
+    <!-- Section Details & Delete Modal -->
+    <transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+    >
+        <div v-if="activeSectionModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @click.self="closeSectionModal">
+            <div class="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+                <!-- Modal Header -->
+                <div class="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800/80 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="h-9 w-9 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-lg text-slate-900 dark:text-white">Section Details</h3>
+                            <p class="text-xs text-slate-500">View section information and management options</p>
+                        </div>
+                    </div>
+                    <button
+                        @click="closeSectionModal"
+                        class="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Content Body -->
+                <div class="py-5 space-y-4">
+                    <!-- Full Title Section -->
+                    <div>
+                        <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Full Section Title</label>
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-150 dark:border-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 leading-relaxed max-h-48 overflow-y-auto break-words select-text">
+                            {{ activeSectionModal.title }}
+                        </div>
+                    </div>
+
+                    <!-- Section Metadata (Page Range & Read Status) -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-150 dark:border-slate-800 flex flex-col">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Page Range</span>
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1">
+                                {{ activeSectionModal.start_page ? `p. ${activeSectionModal.start_page} - ${activeSectionModal.end_page || activeSectionModal.start_page}` : 'No page numbers' }}
+                            </span>
+                        </div>
+                        <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-150 dark:border-slate-800 flex flex-col">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Status</span>
+                            <span class="text-xs font-bold mt-1" :class="activeSectionModal.is_read ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'">
+                                {{ activeSectionModal.is_read ? '✓ Completed / Read' : '○ Waiting / Unread' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Action Buttons -->
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                        @click="deleteSection(activeSectionModal)"
+                        :disabled="isDeletingSection"
+                        class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-extrabold transition-all cursor-pointer shadow-sm"
+                    >
+                        <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        {{ isDeletingSection ? 'Deleting...' : 'Delete Section' }}
+                    </button>
+
+                    <div class="flex items-center gap-2">
+                        <button
+                            @click="toggleSectionRead(activeSectionModal); activeSectionModal.is_read = !activeSectionModal.is_read;"
+                            class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer border"
+                            :class="activeSectionModal.is_read
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'"
+                        >
+                            {{ activeSectionModal.is_read ? 'Mark Unread' : 'Mark Read' }}
+                        </button>
+                        <button
+                            @click="closeSectionModal"
+                            class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-extrabold transition-all cursor-pointer"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </transition>
 </template>
 
 <style scoped>

@@ -11,3 +11,15 @@ createInertiaApp({
             .mount(el);
     },
 });
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('[BookBuddy PWA] Service Worker registered:', registration.scope);
+            })
+            .catch((error) => {
+                console.error('[BookBuddy PWA] Service Worker registration failed:', error);
+            });
+    });
+}

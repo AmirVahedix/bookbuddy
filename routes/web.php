@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/books/{book}/progress', [BookController::class, 'updateProgress'])->name('books.update-progress');
     Route::post('/books/{book}/summarize', [BookController::class, 'summarize'])->name('books.summarize');
     Route::patch('/books/{book}/sections/{section}/toggle-read', [BookController::class, 'toggleSectionRead'])->name('books.sections.toggle-read');
+    Route::delete('/books/{book}/sections/{section}', [BookController::class, 'destroySection'])->name('books.sections.destroy');
     Route::delete('/books/{book}', [BookController::class, 'destroy'])->name('books.destroy');
     Route::post('/summaries/{summary}/chat', [SummaryController::class, 'chat'])->name('summaries.chat');
     Route::delete('/summaries/{summary}/chat', [SummaryController::class, 'clearChat'])->name('summaries.clear-chat');

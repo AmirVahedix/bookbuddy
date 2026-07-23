@@ -672,6 +672,21 @@ class BookControllerTest extends TestCase
         $this->assertFalse($nextChapter->fresh()->is_read);
     }
 
+    public function test_user_can_delete_book_section(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create();
+        $section = BookSection::factory()->create([
+            'book_id' => $book->id,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->delete("/books/{$book->id}/sections/{$section->id}");
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('book_sections', ['id' => $section->id]);
+    }
+
     public function test_unauthenticated_user_cannot_access_edit_book_page_or_update_book(): void
     {
         $book = Book::factory()->create();

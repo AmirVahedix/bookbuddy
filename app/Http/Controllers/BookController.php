@@ -437,6 +437,20 @@ class BookController extends Controller
     }
 
     /**
+     * Delete a book section.
+     */
+    public function destroySection(Book $book, BookSection $section): RedirectResponse
+    {
+        if ($section->book_id !== $book->id) {
+            abort(404);
+        }
+
+        $section->delete();
+
+        return redirect()->back();
+    }
+
+    /**
      * Generate an LLM summary for a page range.
      */
     public function summarize(Request $request, Book $book): RedirectResponse

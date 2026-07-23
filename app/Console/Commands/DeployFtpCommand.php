@@ -33,6 +33,18 @@ class DeployFtpCommand extends Command
     {
         $this->components->info('Starting FTP Git deployment...');
 
+        // 0. Build frontend assets (npm run build)
+        $this->line('Running npm run build...');
+        $buildProcess = Process::path(base_path())->run('npm run build');
+
+        if (! $buildProcess->successful()) {
+            $this->error('npm run build failed: '.($buildProcess->errorOutput() ?: $buildProcess->output()));
+
+            return 1;
+        }
+
+        $this->info('npm run build completed successfully.');
+
         // 1. Gather FTP configuration
         $host = $this->option('host') ?: env('FTP_DEPLOY_HOST');
         $user = $this->option('user') ?: env('FTP_DEPLOY_USERNAME');
@@ -57,8 +69,8 @@ class DeployFtpCommand extends Command
             return 1;
         }
 
-        // 2. Identify files to deploy
-        $files = $this->getFilesToDeploy();
+        // 2. Identify files to deploy (Git files + public/build assets)
+        $files = array_values(array_unique(array_merge($this->getFilesToDeploy(), $this->getBuildFiles())));
 
         if (empty($files)) {
             $this->info('No files found to deploy.');
@@ -433,5 +445,33 @@ class DeployFtpCommand extends Command
             $result->successful(),
             trim($result->output() ?: $result->errorOutput()),
         ];
+    }
+
+    /**
+     * Get all local files in the public/build directory.
+     *
+     * @return array<int, string>
+     */
+    protected function getBuildFiles(): array
+    {
+        $buildDir = base_path('public/build');
+
+        if (! is_dir($buildDir)) {
+            return [];
+        }
+
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($buildDir, \RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                $relativePath = 'public/build/'.ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen($buildDir))), '/');
+                $files[] = $relativePath;
+            }
+        }
+
+        return $files;
     }
 }
