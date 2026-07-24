@@ -755,7 +755,7 @@ const submitSummaryRequest = () => {
     <div class="h-screen flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-hidden font-sans">
         
         <!-- Reader Top Toolbar -->
-        <header class="h-14 border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between z-40">
+        <header class="h-[calc(3.5rem+env(safe-area-inset-top))] border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between z-40 shrink-0 pt-[env(safe-area-inset-top)]">
             <!-- Sidebar toggle and Book title -->
             <div class="flex items-center gap-4">
                 <button
@@ -913,7 +913,7 @@ const submitSummaryRequest = () => {
                 class="w-72 md:w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-900 flex flex-col shrink-0 z-30 transition-all duration-300 max-md:fixed max-md:inset-0 max-md:w-full max-md:h-full max-md:z-50 max-md:shadow-2xl"
             >
                 <!-- Sidebar Header -->
-                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3 bg-slate-50 dark:bg-slate-900/60 shrink-0">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3 max-md:pt-[calc(0.75rem+env(safe-area-inset-top))] bg-slate-50 dark:bg-slate-900/60 shrink-0">
                     <span class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider">Outline</span>
                     <button
                         @click="sidebarOpen = false"

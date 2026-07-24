@@ -1,5 +1,5 @@
 <template>
-    <header class="border-b border-slate-205 dark:border-slate-900 bg-white/80 dark:bg-slate-955/80 backdrop-blur sticky top-0 z-40 transition-colors duration-200 shrink-0">
+    <header class="border-b border-slate-205 dark:border-slate-900 bg-white/80 dark:bg-slate-955/80 backdrop-blur sticky top-0 z-40 transition-colors duration-200 shrink-0 pt-[env(safe-area-inset-top)]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <!-- Back & Details -->
             <div class="flex items-center gap-4 min-w-0">

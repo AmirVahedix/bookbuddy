@@ -43,7 +43,7 @@ const submit = () => {
 
     <div class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 px-6 py-12 transition-colors duration-200">
         <!-- Floating Theme Toggle Button -->
-        <div class="absolute top-6 right-6">
+        <div class="absolute top-[calc(1.5rem+env(safe-area-inset-top))] right-6">
             <button
                 @click="toggleTheme"
                 class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer"

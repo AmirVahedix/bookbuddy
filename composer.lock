@@ -4,8 +4,47 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5c4d528cd9dc332200451f2b54361a69",
+    "content-hash": "be4ecdfca29408f59d2a1680dab154ea",
     "packages": [
+        {
+            "name": "amirvahedix/laravel-deploy-ftp",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../laravel-deploy-ftp",
+                "reference": "f1e831b6db3d816410dd0b7a5ac9bf9779b09291"
+            },
+            "require": {
+                "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "AmirVahedix\\DeployFtp\\DeployFtpServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "AmirVahedix\\DeployFtp\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Amir Vahedi"
+                }
+            ],
+            "description": "A Laravel package to deploy files modified in Git to an FTP server based on commits, tags, or git status.",
+            "transport-options": {
+                "relative": true
+            }
+        },
         {
             "name": "anourvalar/eloquent-serialize",
             "version": "1.3.10",
@@ -10874,7 +10913,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "amirvahedix/laravel-deploy-ftp": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

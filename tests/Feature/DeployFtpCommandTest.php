@@ -14,7 +14,7 @@ class DeployFtpCommandTest extends TestCase
     {
         Process::fake([
             'git ls-files' => Process::result(implode("\n", [
-                'app/Console/Commands/DeployFtpCommand.php',
+                'composer.json',
                 'config/filesystems.php',
                 'routes/console.php',
                 '.gitignore',
@@ -31,7 +31,7 @@ class DeployFtpCommandTest extends TestCase
             '--password' => 'secret',
         ])
             ->assertExitCode(0)
-            ->expectsOutputToContain('[Dry Run] Would upload: app/Console/Commands/DeployFtpCommand.php')
+            ->expectsOutputToContain('[Dry Run] Would upload: composer.json')
             ->expectsOutputToContain('[Dry Run] Would upload: config/filesystems.php')
             ->expectsOutputToContain('[Dry Run] Would upload: routes/console.php')
             ->doesntExpectOutputToContain('[Dry Run] Would upload: .gitignore')
@@ -45,7 +45,7 @@ class DeployFtpCommandTest extends TestCase
     {
         Process::fake([
             'git status --porcelain' => Process::result(implode("\n", [
-                ' M app/Console/Commands/DeployFtpCommand.php',
+                ' M composer.json',
                 '?? config/filesystems.php',
                 ' D routes/console.php', // Deleted, should be skipped
                 ' M .gitignore', // Excluded, should be skipped
@@ -61,7 +61,7 @@ class DeployFtpCommandTest extends TestCase
             '--password' => 'secret',
         ])
             ->assertExitCode(0)
-            ->expectsOutputToContain('[Dry Run] Would upload: app/Console/Commands/DeployFtpCommand.php')
+            ->expectsOutputToContain('[Dry Run] Would upload: composer.json')
             ->expectsOutputToContain('[Dry Run] Would upload: config/filesystems.php')
             ->doesntExpectOutputToContain('[Dry Run] Would upload: routes/console.php')
             ->doesntExpectOutputToContain('[Dry Run] Would upload: .gitignore');
