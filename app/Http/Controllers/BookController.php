@@ -13,11 +13,10 @@ use App\Models\Tag;
 use App\Services\EpubExtractorService;
 use App\Services\EpubParserService;
 use App\Services\OpenAiService;
+use App\Services\PdfImageExtractorService;
 use App\Services\PdfParserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,7 +26,8 @@ class BookController extends Controller
         protected EpubParserService $epubParserService,
         protected PdfParserService $pdfParserService,
         protected OpenAiService $openAiService,
-        protected EpubExtractorService $epubExtractorService
+        protected EpubExtractorService $epubExtractorService,
+        protected PdfImageExtractorService $pdfImageExtractorService
     ) {}
 
     /**
@@ -505,125 +505,21 @@ class BookController extends Controller
         $apiKey = config('services.openai.api_key');
         $generatedSummary = '';
         $tokensUsed = null;
-        $tempFilePath = null;
 
-        if ($book->file_type === BookFileType::Pdf) {
-            $pdfPath = $book->getFirstMediaPath('file');
+        if (empty($apiKey)) {
+            $pagesStr = implode(', ', $targetPages);
+            $summaryTitle = $book->file_type === BookFileType::Pdf
+                ? 'Pages '.($validated['start_page'] && $validated['end_page'] ? "{$validated['start_page']}-{$validated['end_page']}" : $pagesStr)
+                : ($section ? $section->title : 'Selected Section');
 
-            if (! empty($targetPages) && $pdfPath && file_exists($pdfPath)) {
-                try {
-                    $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
-                    if (! file_exists($pythonPath)) {
-                        $pythonPath = 'python3';
-                    }
-                    $scriptPath = base_path('app/Services/pdf_page_extractor.py');
-
-                    $tempDir = storage_path('app/tmp');
-                    if (! file_exists($tempDir)) {
-                        mkdir($tempDir, 0755, true);
-                    }
-                    $tempFilePath = $tempDir.'/'.uniqid('summary_').'.pdf';
-
-                    $result = Process::run([
-                        $pythonPath,
-                        $scriptPath,
-                        $pdfPath,
-                        $tempFilePath,
-                        implode(',', $targetPages),
-                    ]);
-
-                    if (! $result->successful() || ! file_exists($tempFilePath)) {
-                        Log::error('PDF page extractor script failed: '.$result->errorOutput());
-                        $tempFilePath = null;
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Error extracting PDF pages: '.$e->getMessage());
-                    $tempFilePath = null;
-                }
-            }
-
-            if (empty($apiKey)) {
-                $pagesStr = implode(', ', $targetPages);
-                $generatedSummary = '# Summary for Pages '.($validated['start_page'] && $validated['end_page'] ? "{$validated['start_page']}-{$validated['end_page']}" : $pagesStr)."\n\n".
-                    "*(Note: OpenAI API Key was not set in configuration, this is a simulated summary based on your prompt)*\n\n".
-                    "Here is the markdown formatted summary based on your prompt style:\n\n".
-                    "## Key Insights\n".
-                    "- **Topic Focus**: Summarizing content related to the specified pages.\n".
-                    "- **Key Insight**: The document details core concepts in this section, emphasizing architectural design principles, fault tolerance, and scalable data structure patterns.\n".
-                    "- **Summary Detail**: Under the requested query, this page range covers structural models, flow parameters, and operational semantics. Applications in this range focus on efficiency and modularity.\n";
-                $tokensUsed = 250;
-            } else {
-                try {
-                    $pdfToSend = $tempFilePath ?: $pdfPath;
-                    $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached pages (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached PDF document.';
-                    $fullPrompt = "{$pagesContext}\n\nUser request: {$validated['prompt']}\n\nIMPORTANT: Please ensure the response is strictly valid Markdown syntax without enclosing it in triple backticks unless required for code snippets.";
-                    $generatedSummary = $this->openAiService->chatWithPdfs(
-                        $fullPrompt,
-                        [$pdfToSend],
-                        null,
-                        config('services.openai.pdf_format', 'file')
-                    );
-                    $tokensUsed = 1200;
-                } catch (\Exception $e) {
-                    Log::error('PDF Summarization Exception: '.$e->getMessage()."\n".$e->getTraceAsString());
-                    if ($tempFilePath && file_exists($tempFilePath)) {
-                        unlink($tempFilePath);
-                    }
-
-                    return redirect()->back()->withErrors(['openai' => 'OpenAI Error: '.$e->getMessage()]);
-                }
-            }
-        } else {
-            // EPUB Book
-            $epubPath = $book->getFirstMediaPath('file');
-
-            if ($section && $epubPath && file_exists($epubPath)) {
-                try {
-                    $tempFilePath = $this->epubExtractorService->extractSectionToPdf($book, $section);
-                } catch (\Exception $e) {
-                    Log::error('Error extracting EPUB section to PDF: '.$e->getMessage());
-                    $tempFilePath = null;
-                }
-            }
-
-            if (empty($apiKey)) {
-                $sectionTitle = $section ? $section->title : 'Selected Section';
-                $generatedSummary = "# Summary for section \"{$sectionTitle}\"\n\n".
-                    "*(Note: OpenAI API Key was not set in configuration, this is a simulated summary based on your prompt)*\n\n".
-                    "Here is the markdown formatted summary based on your prompt style:\n\n".
-                    "## Key Insights\n".
-                    "- **Topic Focus**: Summarizing content related to the specified section.\n".
-                    "- **Key Insight**: The document details core concepts in this section, emphasizing architectural design principles, fault tolerance, and scalable data structure patterns.\n".
-                    "- **Summary Detail**: Under the requested query, this section covers structural models, flow parameters, and operational semantics. Applications in this range focus on efficiency and modularity.\n";
-                $tokensUsed = 250;
-            } else {
-                if (! $tempFilePath) {
-                    return redirect()->back()->withErrors(['openai' => 'Error: Failed to extract EPUB section and convert to PDF. Please ensure Google Chrome is installed on the server.']);
-                }
-
-                try {
-                    $sectionContext = $section ? "Focus ONLY on the attached PDF (which is section \"{$section->title}\" of the book converted to PDF)." : 'Analyze the attached document.';
-                    $fullPrompt = "{$sectionContext}\n\nUser request: {$validated['prompt']}\n\nIMPORTANT: Please ensure the response is strictly valid Markdown syntax without enclosing it in triple backticks unless required for code snippets.";
-                    $generatedSummary = $this->openAiService->chatWithPdfs(
-                        $fullPrompt,
-                        [$tempFilePath],
-                        null,
-                        config('services.openai.pdf_format', 'file')
-                    );
-                    $tokensUsed = 1200;
-                } catch (\Exception $e) {
-                    Log::error('EPUB Summarization Exception: '.$e->getMessage()."\n".$e->getTraceAsString());
-                    if ($tempFilePath && file_exists($tempFilePath)) {
-                        unlink($tempFilePath);
-                    }
-
-                    return redirect()->back()->withErrors(['openai' => 'OpenAI Error: '.$e->getMessage()]);
-                }
-            }
-        }
-
-        if ($tempFilePath && file_exists($tempFilePath)) {
-            unlink($tempFilePath);
+            $generatedSummary = "# Summary for {$summaryTitle}\n\n".
+                "*(Note: OpenAI API Key was not set in configuration, this is a simulated summary based on your prompt)*\n\n".
+                "Here is the markdown formatted summary based on your prompt style:\n\n".
+                "## Key Insights\n".
+                "- **Topic Focus**: Summarizing content related to the specified section.\n".
+                "- **Key Insight**: The document details core concepts in this section, emphasizing architectural design principles, fault tolerance, and scalable data structure patterns.\n".
+                "- **Summary Detail**: Under the requested query, this section covers structural models, flow parameters, and operational semantics. Applications in this range focus on efficiency and modularity.\n";
+            $tokensUsed = 250;
         }
 
         $summary = Summary::create([

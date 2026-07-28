@@ -45,7 +45,7 @@ class OpenAiServiceTest extends TestCase
             ], 200),
         ]);
 
-        $service = new OpenAiService('test-api-key');
+        $service = new OpenAiService('test-api-key', null, 'gpt-4o');
         $result = $service->chat('Hi there');
 
         $this->assertEquals('Hello user! I am an AI.', $result);
@@ -102,6 +102,50 @@ class OpenAiServiceTest extends TestCase
                 && $content[0]['text'] === 'What is this?'
                 && $content[1]['type'] === 'image_url'
                 && str_contains($content[1]['image_url']['url'] ?? '', "data:image/png;base64,{$expectedBase64}");
+        });
+    }
+
+    /**
+     * Test chat conversation with images.
+     */
+    public function test_chat_conversation_with_images_sends_correct_payload(): void
+    {
+        $mockImage = "{$this->tempDir}/conv_test.png";
+        file_put_contents($mockImage, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='));
+
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => 'Response to conversation turn.',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $service = new OpenAiService('test-key');
+        $chatHistory = [
+            ['role' => 'assistant', 'content' => 'Initial summary response'],
+            ['role' => 'user', 'content' => 'Follow up question'],
+        ];
+
+        $result = $service->chatConversationWithImages('Initial prompt', [$mockImage], $chatHistory);
+
+        $this->assertEquals('Response to conversation turn.', $result);
+
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+            $messages = $data['messages'];
+
+            return count($messages) === 3
+                && is_array($messages[0]['content'])
+                && $messages[0]['content'][0]['text'] === 'Initial prompt'
+                && $messages[1]['role'] === 'assistant'
+                && $messages[1]['content'] === 'Initial summary response'
+                && $messages[2]['role'] === 'user'
+                && $messages[2]['content'] === 'Follow up question';
         });
     }
 
@@ -244,5 +288,25 @@ class OpenAiServiceTest extends TestCase
 
         $service = new OpenAiService('test-key');
         $service->chat('Test prompt');
+    }
+
+    /**
+     * Test parsing SSE streaming response format (data: {...}).
+     */
+    public function test_parse_response_handles_sse_streaming_format(): void
+    {
+        $sseBody = "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n"
+            ."data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"* **Recursive Function**: A function that calls itself.\\n\"}}]}\n\n"
+            ."data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"* **Base Case**: Mandatory.\"}}]}\n\n"
+            ."data: [DONE]\n";
+
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response($sseBody, 200),
+        ]);
+
+        $service = new OpenAiService('test-key');
+        $result = $service->chat('Test prompt');
+
+        $this->assertEquals("* **Recursive Function**: A function that calls itself.\n* **Base Case**: Mandatory.", $result);
     }
 }

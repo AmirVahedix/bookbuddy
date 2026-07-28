@@ -38,13 +38,78 @@ const isChatOpen = ref(true);
 const chatMessagesContainer = ref(null);
 const pendingMessages = ref([]);
 
+// SSE Streaming State
+const isStreaming = ref(false);
+const streamedContent = ref('');
+const streamError = ref(null);
+let eventSource = null;
+
 const chatForm = useForm({
     message: '',
 });
 
+const startStreamingIfNeeded = () => {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+
+    streamError.value = null;
+
+    if (!activeSummary.value) return;
+
+    if (!activeSummary.value.generated_summary) {
+        isStreaming.value = true;
+        streamedContent.value = '';
+
+        eventSource = new EventSource(`/summaries/${activeSummary.value.id}/stream`);
+
+        eventSource.onmessage = (event) => {
+            if (event.data === '[DONE]') {
+                eventSource.close();
+                eventSource = null;
+                isStreaming.value = false;
+                if (streamedContent.value) {
+                    activeSummary.value.generated_summary = streamedContent.value;
+                }
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(event.data);
+                if (parsed.error) {
+                    streamError.value = parsed.error;
+                    isStreaming.value = false;
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+                } else if (parsed.content) {
+                    streamedContent.value += parsed.content;
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            console.error('SSE Error:', err);
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            isStreaming.value = false;
+        };
+    } else {
+        isStreaming.value = false;
+        streamedContent.value = activeSummary.value.generated_summary;
+    }
+};
+
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
     adjustScrollPositionForActiveSummary();
+    startStreamingIfNeeded();
 });
 
 const toggleTheme = () => {
@@ -58,6 +123,7 @@ const toggleTheme = () => {
         isDarkMode.value = true;
     }
 };
+
 
 const formatPages = (targetPages) => {
     if (!targetPages || targetPages.length === 0) return 'Whole Book';
@@ -166,6 +232,7 @@ watch(activeSummaryId, () => {
     chatForm.reset('message');
     pendingMessages.value = [];
     adjustScrollPositionForActiveSummary();
+    startStreamingIfNeeded();
 });
 </script>
 
@@ -225,6 +292,17 @@ watch(activeSummaryId, () => {
                             <!-- Collapsible prompt accordion -->
                             <PromptAccordion :summary="activeSummary" />
 
+                            <!-- Live Streaming Status Indicator -->
+                            <div v-if="isStreaming" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 rounded-full animate-pulse border border-violet-200/30">
+                                <span class="w-2 h-2 rounded-full bg-violet-600 animate-ping"></span>
+                                AI is generating summary live...
+                            </div>
+
+                            <!-- Error alert -->
+                            <div v-if="streamError" class="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs border border-red-200/40">
+                                <strong>Error generating summary:</strong> {{ streamError }}
+                            </div>
+
                             <!-- Markdown reading pane -->
                             <article
                                 class="prose dark:prose-invert max-w-none transition-all duration-200"
@@ -232,8 +310,9 @@ watch(activeSummaryId, () => {
                                     fontSize === 'sm' ? 'text-xs md:text-sm' : fontSize === 'lg' ? 'text-base md:text-lg' : 'text-sm md:text-base',
                                     fontStyle === 'serif' ? 'font-serif tracking-normal leading-relaxed' : fontStyle === 'mono' ? 'font-mono text-xs leading-normal' : 'font-sans tracking-wide leading-relaxed'
                                 ]"
-                                v-html="renderMarkdown(activeSummary.generated_summary)"
+                                v-html="renderMarkdown(streamedContent || activeSummary.generated_summary)"
                             ></article>
+
 
                             <!-- Inline Discussion / AI Chat Messages -->
                             <ChatMessages

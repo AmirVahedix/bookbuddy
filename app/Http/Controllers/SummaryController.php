@@ -7,12 +7,13 @@ use App\Models\Book;
 use App\Models\Summary;
 use App\Services\EpubExtractorService;
 use App\Services\OpenAiService;
+use App\Services\PdfImageExtractorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SummaryController extends Controller
 {
@@ -55,14 +56,110 @@ class SummaryController extends Controller
     }
 
     /**
+     * Stream summary generation using Server-Sent Events (SSE).
+     */
+    public function stream(
+        Summary $summary,
+        OpenAiService $openAiService,
+        EpubExtractorService $epubExtractorService,
+        PdfImageExtractorService $pdfImageExtractorService
+    ): StreamedResponse {
+        return response()->stream(function () use ($summary, $openAiService, $epubExtractorService, $pdfImageExtractorService) {
+            while (ob_get_level() > 0) {
+                ob_end_flush();
+            }
+
+            if (! empty($summary->generated_summary)) {
+                echo 'data: '.json_encode(['content' => $summary->generated_summary])."\n\n";
+                echo "data: [DONE]\n\n";
+                flush();
+
+                return;
+            }
+
+            $book = $summary->book;
+            $targetPages = $summary->target_pages ?? [];
+            $imagePaths = [];
+
+            try {
+                if ($book->file_type === BookFileType::Pdf) {
+                    $pdfPath = $book->getFirstMediaPath('file');
+                    if ($pdfPath && file_exists($pdfPath)) {
+                        $imagePaths = $pdfImageExtractorService->extractPagesToImages($pdfPath, $targetPages);
+                    }
+                    $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached page images (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached page images of the PDF document.';
+                } else {
+                    $epubPath = $book->getFirstMediaPath('file');
+                    $tempPdfPath = null;
+                    if ($summary->bookSection && $epubPath && file_exists($epubPath)) {
+                        $tempPdfPath = $epubExtractorService->extractSectionToPdf($book, $summary->bookSection);
+                        if ($tempPdfPath && file_exists($tempPdfPath)) {
+                            $imagePaths = $pdfImageExtractorService->extractPagesToImages($tempPdfPath, []);
+                            @unlink($tempPdfPath);
+                        }
+                    }
+                    $pagesContext = ! empty($imagePaths) ? 'Focus ONLY on the attached page images (which represent section "'.($summary->bookSection?->title ?? '').'" of the book).' : 'Analyze the attached document.';
+                }
+
+                $fullPrompt = "{$pagesContext}\n\nUser request: {$summary->prompt_used}\n\nIMPORTANT: Please ensure the response is strictly valid Markdown syntax without enclosing it in triple backticks unless required for code snippets.";
+
+                $accumulatedSummary = '';
+
+                $openAiService->streamChatWithImages($fullPrompt, $imagePaths, function (string $chunk) use (&$accumulatedSummary) {
+                    $accumulatedSummary .= $chunk;
+                    echo 'data: '.json_encode(['content' => $chunk])."\n\n";
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
+                    flush();
+                });
+
+                if (! empty($accumulatedSummary)) {
+                    $summary->update([
+                        'generated_summary' => $accumulatedSummary,
+                        'tokens_used' => 1200,
+                    ]);
+                }
+
+                echo "data: [DONE]\n\n";
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
+            } catch (\Exception $e) {
+                Log::error('Summary Stream Error: '.$e->getMessage());
+                echo 'data: '.json_encode(['error' => $e->getMessage()])."\n\n";
+                echo "data: [DONE]\n\n";
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
+            } finally {
+                foreach ($imagePaths as $imgFile) {
+                    if (file_exists($imgFile)) {
+                        @unlink($imgFile);
+                    }
+                }
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-transform',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    /**
      * Send a new message to the LLM about a specific summary's context.
      */
     public function chat(
         Request $request,
         Summary $summary,
         OpenAiService $openAiService,
-        EpubExtractorService $epubExtractorService
+        EpubExtractorService $epubExtractorService,
+        PdfImageExtractorService $pdfImageExtractorService
     ): RedirectResponse {
+
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
         ]);
@@ -90,62 +187,37 @@ class SummaryController extends Controller
 
         $book = $summary->book;
         $targetPages = $summary->target_pages ?? [];
-        $tempFilePath = null;
-        $fileToSend = null;
+        $imagePaths = [];
 
         if ($book->file_type === BookFileType::Pdf) {
             $pdfPath = $book->getFirstMediaPath('file');
-            if (! empty($targetPages) && $pdfPath && file_exists($pdfPath)) {
+            if ($pdfPath && file_exists($pdfPath)) {
                 try {
-                    $pythonPath = '/Users/macbookair/miniconda3/bin/python3';
-                    if (! file_exists($pythonPath)) {
-                        $pythonPath = 'python3';
-                    }
-                    $scriptPath = base_path('app/Services/pdf_page_extractor.py');
-
-                    $tempDir = storage_path('app/tmp');
-                    if (! file_exists($tempDir)) {
-                        mkdir($tempDir, 0755, true);
-                    }
-                    $tempFilePath = $tempDir.'/'.uniqid('chat_').'.pdf';
-
-                    $result = Process::run([
-                        $pythonPath,
-                        $scriptPath,
-                        $pdfPath,
-                        $tempFilePath,
-                        implode(',', $targetPages),
-                    ]);
-
-                    if ($result->successful() && file_exists($tempFilePath)) {
-                        $fileToSend = $tempFilePath;
-                    } else {
-                        Log::error('PDF page extractor script failed: '.$result->errorOutput());
-                    }
+                    $imagePaths = $pdfImageExtractorService->extractPagesToImages($pdfPath, $targetPages);
                 } catch (\Exception $e) {
-                    Log::error('Error extracting PDF pages: '.$e->getMessage());
+                    Log::error('Error extracting PDF page images: '.$e->getMessage());
                 }
             }
-            if (! $fileToSend) {
-                $fileToSend = $pdfPath;
-            }
-            $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached pages (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached PDF document.';
+            $pagesContext = ! empty($targetPages) ? 'Focus ONLY on the attached page images (extracted from pages '.implode(', ', $targetPages).' of the book).' : 'Analyze the attached page images of the PDF document.';
         } else {
             $epubPath = $book->getFirstMediaPath('file');
+            $tempPdfPath = null;
             if ($summary->bookSection && $epubPath && file_exists($epubPath)) {
                 try {
-                    $tempFilePath = $epubExtractorService->extractSectionToPdf($book, $summary->bookSection);
-                    if ($tempFilePath && file_exists($tempFilePath)) {
-                        $fileToSend = $tempFilePath;
+                    $tempPdfPath = $epubExtractorService->extractSectionToPdf($book, $summary->bookSection);
+                    if ($tempPdfPath && file_exists($tempPdfPath)) {
+                        $imagePaths = $pdfImageExtractorService->extractPagesToImages($tempPdfPath, []);
+                        unlink($tempPdfPath);
+                        $tempPdfPath = null;
                     }
                 } catch (\Exception $e) {
-                    Log::error('Error extracting EPUB section: '.$e->getMessage());
+                    Log::error('Error extracting EPUB section to images: '.$e->getMessage());
+                    if ($tempPdfPath && file_exists($tempPdfPath)) {
+                        unlink($tempPdfPath);
+                    }
                 }
             }
-            if (! $fileToSend) {
-                $fileToSend = $epubPath;
-            }
-            $pagesContext = $tempFilePath ? 'Focus ONLY on the attached PDF (which is section "'.$summary->bookSection->title.'" of the book converted to PDF).' : 'Analyze the attached EPUB document.';
+            $pagesContext = ! empty($imagePaths) ? 'Focus ONLY on the attached page images (which represent section "'.($summary->bookSection?->title ?? '').'" of the book).' : 'Analyze the attached document.';
         }
 
         try {
@@ -172,24 +244,12 @@ class SummaryController extends Controller
                 ];
             }
 
-            // Call LLM
-            if ($book->file_type === BookFileType::Pdf || $tempFilePath) {
-                $reply = $openAiService->chatConversationWithPdf(
-                    $initialPrompt,
-                    $fileToSend ? [$fileToSend] : [],
-                    $chatHistory,
-                    null,
-                    config('services.openai.pdf_format', 'file')
-                );
-            } else {
-                $reply = $openAiService->chatConversationWithEpub(
-                    $initialPrompt,
-                    $fileToSend ? [$fileToSend] : [],
-                    $chatHistory,
-                    null,
-                    config('services.openai.pdf_format', 'file')
-                );
-            }
+            // Call LLM using image payloads
+            $reply = $openAiService->chatConversationWithImages(
+                $initialPrompt,
+                $imagePaths,
+                $chatHistory
+            );
 
             // Save assistant reply
             $summary->chatMessages()->create([
@@ -204,15 +264,19 @@ class SummaryController extends Controller
             // Delete user message we just saved so they can retry
             $summary->chatMessages()->latest()->first()?->delete();
 
-            if ($tempFilePath && file_exists($tempFilePath)) {
-                unlink($tempFilePath);
+            foreach ($imagePaths as $imgFile) {
+                if (file_exists($imgFile)) {
+                    unlink($imgFile);
+                }
             }
 
             return redirect()->back()->withErrors(['chat' => 'AI Error: '.$e->getMessage()]);
         }
 
-        if ($tempFilePath && file_exists($tempFilePath)) {
-            unlink($tempFilePath);
+        foreach ($imagePaths as $imgFile) {
+            if (file_exists($imgFile)) {
+                unlink($imgFile);
+            }
         }
 
         return redirect()->back();
