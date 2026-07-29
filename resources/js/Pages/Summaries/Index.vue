@@ -99,7 +99,7 @@ const handleImageError = (summaryId) => {
 </script>
 
 <template>
-    <Head title="My Book Summaries" />
+    <Head title="Chats" />
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors duration-200">
         <!-- Navigation Header -->
@@ -109,8 +109,8 @@ const handleImageError = (summaryId) => {
         <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-8">
             <!-- Page Header -->
             <div class="mb-8">
-                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">My Book Summaries</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Browse and search through all your AI-generated summaries across your library.</p>
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Chats</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Browse and search through all your AI-generated chats across your library.</p>
             </div>
 
             <!-- Filters Section -->
@@ -124,7 +124,7 @@ const handleImageError = (summaryId) => {
                     <input
                         type="text"
                         v-model="searchQuery"
-                        placeholder="Search inside summaries..."
+                        placeholder="Search inside chats..."
                         class="w-full pl-9 pr-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors"
                     />
                 </div>
@@ -243,9 +243,9 @@ const handleImageError = (summaryId) => {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <h3 class="text-lg font-semibold text-slate-800 dark:text-white">No summaries found</h3>
+                    <h3 class="text-lg font-semibold text-slate-800 dark:text-white">No chats found</h3>
                     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
-                        {{ summaries.length > 0 ? "Adjust your filters or try a different search term to find summaries." : "You haven't generated any AI summaries yet. Select a book from your library to get started." }}
+                        {{ summaries.length > 0 ? "Adjust your filters or try a different search term to find chats." : "You haven't generated any AI chats yet. Select a book from your library to get started." }}
                     </p>
                     <div class="flex items-center justify-center gap-3">
                         <button

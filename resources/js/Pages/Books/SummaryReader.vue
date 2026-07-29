@@ -224,7 +224,7 @@ watch(activeSummaryId, () => {
 </script>
 
 <template>
-    <Head :title="'Summaries - ' + props.book.title" />
+    <Head :title="'Chats - ' + props.book.title" />
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-955 dark:text-slate-100 flex flex-col transition-colors duration-200">
         <!-- Main Workspace -->

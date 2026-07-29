@@ -181,7 +181,7 @@ const scrollSlider = (sliderRef, direction) => {
 
                                 <!-- Bottom Related Color Block Overlay -->
                                 <div :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', getTheme(book.id).overlayBg]">
-                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-2 drop-shadow-sm group-hover:text-amber-300 transition-colors">
+                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-amber-300 transition-colors">
                                         {{ book.title }}
                                     </h3>
                                     <p class="text-xs text-white/80 font-medium mt-1 truncate">
@@ -190,8 +190,7 @@ const scrollSlider = (sliderRef, direction) => {
 
                                     <!-- Progress Bar -->
                                     <div class="mt-3">
-                                        <div class="flex items-center justify-between text-[11px] font-semibold text-white/90 mb-1">
-                                            <span>Page {{ book.current_page }} of {{ book.total_pages }}</span>
+                                        <div class="flex items-center justify-end text-[11px] font-semibold text-white/90 mb-1">
                                             <span :class="getTheme(book.id).textAccent">
                                                 {{ book.total_pages > 0 ? Math.round((book.current_page / book.total_pages) * 100) : 0 }}%
                                             </span>
@@ -296,7 +295,7 @@ const scrollSlider = (sliderRef, direction) => {
 
                                 <!-- Bottom Related Color Block Overlay -->
                                 <div :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', getTheme(book.id + 2).overlayBg]">
-                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-2 drop-shadow-sm group-hover:text-emerald-300 transition-colors">
+                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-emerald-300 transition-colors">
                                         {{ book.title }}
                                     </h3>
                                     <p class="text-xs text-white/80 font-medium mt-1 truncate">
@@ -321,79 +320,7 @@ const scrollSlider = (sliderRef, direction) => {
                 </div>
             </section>
 
-            <!-- SECTION 3: Latest Summaries -->
-            <section class="mb-8">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                            Latest Summaries
-                        </h2>
-                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Recent AI chapter & section breakdowns</p>
-                    </div>
-                    <Link
-                        href="/summaries"
-                        class="text-xs sm:text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors"
-                    >
-                        View All Summaries →
-                    </Link>
-                </div>
-
-                <!-- Summaries Cards Grid -->
-                <div v-if="latestSummaries.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    <div
-                        v-for="summary in latestSummaries"
-                        :key="summary.id"
-                        class="rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 backdrop-blur-md hover:border-indigo-500/40 transition-all duration-300 flex flex-col justify-between group shadow-md dark:shadow-xl"
-                    >
-                        <div>
-                            <!-- Header Info -->
-                            <div class="flex items-start justify-between gap-3 mb-3">
-                                <div>
-                                    <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                                        {{ summary.section_title || 'Summary' }}
-                                    </span>
-                                    <h3 class="font-bold text-base text-slate-900 dark:text-white mt-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors line-clamp-1">
-                                        {{ summary.book_title || 'Untitled Book' }}
-                                    </h3>
-                                </div>
-                                <span class="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                                    {{ summary.created_at }}
-                                </span>
-                            </div>
-
-                            <!-- Snippet preview -->
-                            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3 mb-4 font-normal">
-                                {{ summary.generated_summary }}
-                            </p>
-                        </div>
-
-                        <!-- Footer Actions -->
-                        <div class="pt-3 border-t border-slate-100 dark:border-white/10 flex items-center justify-between">
-                            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium" v-if="summary.target_pages && summary.target_pages.length">
-                                Pages {{ summary.target_pages[0] }} - {{ summary.target_pages[summary.target_pages.length - 1] }}
-                            </span>
-                            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium" v-else>
-                                Section Breakdown
-                            </span>
-
-                            <Link
-                                :href="`/books/${summary.book_id}/summaries/${summary.id}`"
-                                class="inline-flex items-center text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-                            >
-                                Read →
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Empty Summaries State -->
-                <div v-else class="rounded-3xl border border-white/10 bg-slate-900/60 p-8 text-center backdrop-blur-md">
-                    <p class="text-sm text-slate-400">No AI summaries generated yet.</p>
-                    <Link href="/books" class="mt-3 inline-block text-xs font-semibold text-indigo-400 hover:text-indigo-300">
-                        Open a book to generate summaries →
-                    </Link>
-                </div>
-            </section>
+            <!-- SECTION 2: Done Books Slider (end of main content) -->
         </main>
 
         <!-- Floating Action Button for Mobile -->

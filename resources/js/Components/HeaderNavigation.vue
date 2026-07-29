@@ -7,7 +7,7 @@ const page = usePage();
 const tabs = [
     { label: 'Home', href: '/dashboard' },
     { label: 'Books', href: '/books' },
-    { label: 'Summaries', href: '/summaries' },
+    { label: 'Chats', href: '/summaries' },
 ];
 
 const activeIndex = computed(() => {
