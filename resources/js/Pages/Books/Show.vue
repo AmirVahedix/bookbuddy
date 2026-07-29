@@ -478,20 +478,28 @@ const deleteBook = () => {
                 
                 <div class="flex flex-col sm:flex-row gap-5 sm:gap-6 md:gap-8 items-stretch relative z-10">
                     <!-- Cover / Initials -->
-                    <div class="w-full sm:w-48 md:w-56 lg:w-64 min-h-[260px] sm:min-h-0 self-stretch shrink-0 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center">
-                        <img
-                            v-if="props.book.thumbnail_url"
-                            :src="props.book.thumbnail_url"
-                            :alt="props.book.title"
-                            class="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <div v-else class="flex flex-col items-center justify-center h-full p-4">
+                    <div class="w-full sm:w-48 md:w-56 lg:w-64 min-h-[260px] sm:min-h-0 self-stretch shrink-0 rounded-2xl overflow-hidden shadow-lg bg-slate-900/90 dark:bg-slate-950 relative flex flex-col items-center justify-center p-2 text-center">
+                        <template v-if="props.book.thumbnail_url">
+                            <!-- Ambient blurred background for uncropped letterboxing -->
+                            <img
+                                :src="props.book.thumbnail_url"
+                                alt=""
+                                class="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none"
+                            />
+                            <!-- Uncropped foreground cover image -->
+                            <img
+                                :src="props.book.thumbnail_url"
+                                :alt="props.book.title"
+                                class="relative z-10 max-w-full max-h-full object-contain rounded-xl shadow-md"
+                            />
+                        </template>
+                        <div v-else class="flex flex-col items-center justify-center h-full p-4 bg-gradient-to-br from-violet-600 to-indigo-700 w-full rounded-xl">
                             <svg class="h-12 w-12 text-white/50 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                             <span class="text-xl font-extrabold text-white leading-tight tracking-wider">{{ getInitials(props.book.title) }}</span>
                         </div>
-                        <span class="absolute bottom-3 right-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-black/70 text-white backdrop-blur-sm z-10">
+                        <span class="absolute bottom-3 right-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-black/70 text-white backdrop-blur-sm z-20">
                             {{ props.book.file_type }}
                         </span>
                     </div>
