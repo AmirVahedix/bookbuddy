@@ -269,11 +269,11 @@ watch(activeSummaryId, () => {
                             <!-- Header metadata -->
                             <div class="border-b border-slate-100 dark:border-slate-800 pb-5">
                                 <div class="flex flex-wrap items-center gap-2 mb-3">
-                                    <span v-if="props.book.file_type === 'pdf'" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
-                                        {{ formatPages(activeSummary.target_pages) }}
-                                    </span>
                                     <span v-if="activeSummary.section_title" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/20">
                                         {{ activeSummary.section_title }}
+                                    </span>
+                                    <span v-if="activeSummary.target_pages && activeSummary.target_pages.length > 0" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
+                                        {{ formatPages(activeSummary.target_pages) }}
                                     </span>
                                     <span class="text-xs text-slate-400 font-medium ml-auto flex items-center gap-1.5 shrink-0">
                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -284,7 +284,7 @@ watch(activeSummaryId, () => {
                                 </div>
 
                                 <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                                    Summary of {{ props.book.file_type === 'pdf' ? formatPages(activeSummary.target_pages) : (activeSummary.section_title || 'Section') }}
+                                    {{ activeSummary.section_title || 'Section' }}
                                 </h2>
                                 <p class="text-xs text-slate-400 mt-2 font-medium">Generated {{ activeSummary.created_at }}</p>
                             </div>

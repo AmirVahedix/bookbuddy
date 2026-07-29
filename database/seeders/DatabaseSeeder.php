@@ -77,7 +77,25 @@ class DatabaseSeeder extends Seeder
             ->usingFileName('sicp-cover.jpg')
             ->toMediaCollection('thumbnail');
 
-        // 3. Map structural sections for the EPUB book
+        // 3. Map structural sections for books
+        $pdfSection1 = BookSection::factory()->create([
+            'book_id' => $pdfBook->id,
+            'title' => 'Chapter 1: Reliable, Scalable, and Maintainable Applications',
+            'section_identifier' => 'page-1',
+            'start_page' => 1,
+            'end_page' => 34,
+            'order' => 1,
+        ]);
+
+        $pdfSection2 = BookSection::factory()->create([
+            'book_id' => $pdfBook->id,
+            'title' => 'Chapter 3: Storage and Retrieval',
+            'section_identifier' => 'page-35',
+            'start_page' => 35,
+            'end_page' => 90,
+            'order' => 2,
+        ]);
+
         $section1 = BookSection::factory()->create([
             'book_id' => $epubBook->id,
             'title' => 'Chapter 1: Building Abstractions with Procedures',
@@ -110,7 +128,7 @@ class DatabaseSeeder extends Seeder
         // Summaries for the PDF Book (Precise page processing)
         Summary::factory()->create([
             'book_id' => $pdfBook->id,
-            'book_section_id' => null,
+            'book_section_id' => $pdfSection1->id,
             'target_pages' => [1, 2, 3, 4, 5],
             'prompt_used' => 'Summarize Chapter 1 introduction on reliable, scalable, and maintainable applications.',
             'generated_summary' => <<<'MARKDOWN'
@@ -135,7 +153,7 @@ MARKDOWN,
 
         Summary::factory()->create([
             'book_id' => $pdfBook->id,
-            'book_section_id' => null,
+            'book_section_id' => $pdfSection2->id,
             'target_pages' => [39, 40, 41, 42],
             'prompt_used' => 'Analyze storage engines: LSM-Trees vs B-Trees as explained in these pages.',
             'generated_summary' => <<<'MARKDOWN'

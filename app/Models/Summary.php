@@ -59,4 +59,42 @@ class Summary extends Model
     {
         return $this->hasMany(SummaryChatMessage::class)->orderBy('created_at');
     }
+
+    /**
+     * Get the resolved section title.
+     */
+    public function getSectionTitleAttribute(): ?string
+    {
+        if ($this->bookSection) {
+            return $this->bookSection->title;
+        }
+
+        if ($this->book_section_id) {
+            $section = BookSection::find($this->book_section_id);
+            if ($section) {
+                return $section->title;
+            }
+        }
+
+        if (! empty($this->target_pages) && $this->book_id) {
+            $startPage = $this->target_pages[0];
+            $section = BookSection::where('book_id', $this->book_id)
+                ->where('start_page', '<=', $startPage)
+                ->where('end_page', '>=', $startPage)
+                ->first();
+
+            if (! $section) {
+                $section = BookSection::where('book_id', $this->book_id)
+                    ->where('start_page', '>=', $startPage)
+                    ->orderBy('start_page')
+                    ->first();
+            }
+
+            if ($section) {
+                return $section->title;
+            }
+        }
+
+        return null;
+    }
 }

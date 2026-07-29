@@ -38,7 +38,7 @@ class SummaryController extends Controller
                 'book_title' => $s->book?->title,
                 'book_author' => $s->book?->author,
                 'book_thumbnail_url' => $s->book?->getFirstMediaUrl('thumbnail'),
-                'section_title' => $s->bookSection?->title,
+                'section_title' => $s->section_title,
                 'target_pages' => $s->target_pages,
                 'prompt_used' => $s->prompt_used,
                 'generated_summary' => $s->generated_summary,

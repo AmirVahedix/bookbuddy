@@ -241,7 +241,7 @@ class BookController extends Controller
             ->map(fn ($s) => [
                 'id' => $s->id,
                 'book_section_id' => $s->book_section_id,
-                'section_title' => $s->bookSection?->title,
+                'section_title' => $s->section_title,
                 'target_pages' => $s->target_pages,
                 'prompt_used' => $s->prompt_used,
                 'generated_summary' => $s->generated_summary,
@@ -288,7 +288,7 @@ class BookController extends Controller
             ->map(fn ($s) => [
                 'id' => $s->id,
                 'book_section_id' => $s->book_section_id,
-                'section_title' => $s->bookSection?->title,
+                'section_title' => $s->section_title,
                 'target_pages' => $s->target_pages,
                 'prompt_used' => $s->prompt_used,
                 'generated_summary' => $s->generated_summary,
@@ -331,7 +331,7 @@ class BookController extends Controller
             ->map(fn ($s) => [
                 'id' => $s->id,
                 'book_section_id' => $s->book_section_id,
-                'section_title' => $s->bookSection?->title,
+                'section_title' => $s->section_title,
                 'target_pages' => $s->target_pages,
                 'prompt_used' => $s->prompt_used,
                 'generated_summary' => $s->generated_summary,

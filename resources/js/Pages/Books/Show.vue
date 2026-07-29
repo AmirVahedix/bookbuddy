@@ -688,15 +688,15 @@ const deleteBook = () => {
                                 <div>
                                     <!-- Header -->
                                     <div class="flex items-start justify-between gap-3 mb-3">
-                                        <div class="flex flex-col">
-                                            <span class="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                        <div class="flex flex-col min-w-0">
+                                            <span class="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5 line-clamp-1">
                                                 <svg class="h-4 w-4 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                                 </svg>
-                                                {{ formatPages(summary.target_pages) }}
+                                                {{ summary.section_title || 'Section' }}
                                             </span>
-                                            <span v-if="summary.section_title" class="text-xs text-violet-600 dark:text-violet-400 font-semibold mt-1">
-                                                {{ summary.section_title }}
+                                            <span v-if="summary.target_pages && summary.target_pages.length > 0" class="text-xs text-violet-600 dark:text-violet-400 font-semibold mt-1">
+                                                {{ formatPages(summary.target_pages) }}
                                             </span>
                                         </div>
                                         <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium shrink-0">{{ summary.created_at }}</span>

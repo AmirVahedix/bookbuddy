@@ -277,11 +277,11 @@ const handleImageError = (summaryId) => {
                                 <p class="text-xs text-slate-450 truncate mt-0.5">{{ summary.book_author || 'Unknown Author' }}</p>
                                 
                                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                                    <span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/10">
-                                        {{ formatPages(summary.target_pages) }}
-                                    </span>
-                                    <span v-if="summary.section_title" class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/40 dark:border-slate-800/40 max-w-[150px] truncate">
+                                    <span v-if="summary.section_title" class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10 max-w-[200px] truncate">
                                         {{ summary.section_title }}
+                                    </span>
+                                    <span v-if="summary.target_pages && summary.target_pages.length > 0" class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/10">
+                                        {{ formatPages(summary.target_pages) }}
                                     </span>
                                 </div>
                             </div>
