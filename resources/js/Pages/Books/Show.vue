@@ -473,12 +473,12 @@ const deleteBook = () => {
             </div>
 
             <!-- Book Top Header Info Card -->
-            <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 md:p-8 shadow-xl mb-8 transition-colors duration-200 relative overflow-hidden">
+            <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xl mb-8 transition-colors duration-200 relative overflow-hidden">
                 <div class="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-600/5 blur-3xl"></div>
                 
-                <div class="flex flex-col md:flex-row gap-6 md:gap-8 items-stretch relative z-10">
+                <div class="flex flex-col sm:flex-row gap-5 sm:gap-6 md:gap-8 items-stretch relative z-10">
                     <!-- Cover / Initials -->
-                    <div class="w-full md:w-56 lg:w-64 min-h-[260px] md:min-h-0 self-stretch shrink-0 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center">
+                    <div class="w-full sm:w-48 md:w-56 lg:w-64 min-h-[260px] sm:min-h-0 self-stretch shrink-0 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center">
                         <img
                             v-if="props.book.thumbnail_url"
                             :src="props.book.thumbnail_url"
