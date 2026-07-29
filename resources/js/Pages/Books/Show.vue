@@ -25,6 +25,7 @@ const props = defineProps({
 
 const isDarkMode = ref(false);
 const activeSummaryTab = ref('all'); // 'all' or 'ai'
+const brokenImage = ref(false);
 
 // Table of Contents Collapsible State
 const expandedSections = ref({});
@@ -74,6 +75,13 @@ const progressForm = useForm({
     current_page: props.book.current_page,
     reading_status: props.book.reading_status,
 });
+
+watch(() => props.book, (newBook) => {
+    if (newBook) {
+        progressForm.current_page = newBook.current_page;
+        progressForm.reading_status = newBook.reading_status;
+    }
+}, { deep: true });
 
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
@@ -414,9 +422,10 @@ const deleteBook = () => {
                     <!-- Cover / Initials (exact size, no crop, no padding) -->
                     <div class="shrink-0 relative rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800">
                         <img
-                            v-if="props.book.thumbnail_url"
+                            v-if="props.book.thumbnail_url && !brokenImage"
                             :src="props.book.thumbnail_url"
                             :alt="props.book.title"
+                            @error="brokenImage = true"
                             class="w-auto h-auto max-w-[200px] sm:max-w-[220px] md:max-w-[240px] max-h-[340px] object-contain rounded-2xl block"
                         />
                         <div v-else class="w-48 h-64 flex flex-col items-center justify-center p-4 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-2xl text-center">

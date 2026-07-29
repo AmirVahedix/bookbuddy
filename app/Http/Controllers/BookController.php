@@ -427,34 +427,82 @@ class BookController extends Controller
             'is_read' => $newReadStatus,
         ]);
 
-        if ($newReadStatus) {
-            $parentLevel = $section->level ?? 1;
-            $allSections = $book->sections()->orderBy('order')->get();
+        $parentLevel = $section->level ?? 1;
+        $allSections = $book->sections()->orderBy('order')->orderBy('id')->get();
 
-            $childIds = [];
-            $foundTarget = false;
+        $childIds = [];
+        $foundTarget = false;
 
-            foreach ($allSections as $s) {
-                if ($s->id === $section->id) {
-                    $foundTarget = true;
+        foreach ($allSections as $s) {
+            if ($s->id === $section->id) {
+                $foundTarget = true;
 
-                    continue;
+                continue;
+            }
+
+            if ($foundTarget) {
+                $level = $s->level ?? 1;
+                if ($level > $parentLevel) {
+                    $childIds[] = $s->id;
+                } else {
+                    break;
                 }
+            }
+        }
 
-                if ($foundTarget) {
-                    $level = $s->level ?? 1;
-                    if ($level > $parentLevel) {
-                        $childIds[] = $s->id;
-                    } else {
-                        break;
-                    }
+        if (! empty($childIds)) {
+            BookSection::whereIn('id', $childIds)->update([
+                'is_read' => $newReadStatus,
+            ]);
+        }
+
+        // Re-fetch all sections to reflect updated read statuses for children as well
+        $allSections = $book->sections()->orderBy('order')->orderBy('id')->get();
+        $totalSections = $allSections->count();
+
+        if ($totalSections > 0) {
+            $highestReadIndex = 0;
+            foreach ($allSections as $index => $s) {
+                if ($s->is_read) {
+                    $highestReadIndex = $index + 1; // 1-based index
                 }
             }
 
-            if (! empty($childIds)) {
-                BookSection::whereIn('id', $childIds)->update([
-                    'is_read' => true,
-                ]);
+            $percentage = $highestReadIndex / $totalSections;
+
+            $totalPages = $book->total_pages;
+            if (empty($totalPages) || $totalPages <= 0) {
+                $maxSectionEndPage = $allSections->max('end_page');
+                if ($maxSectionEndPage && $maxSectionEndPage > 0) {
+                    $totalPages = $maxSectionEndPage;
+                    $book->total_pages = $totalPages;
+                }
+            }
+
+            $bookUpdateData = [];
+            if (! empty($totalPages) && $totalPages > 0) {
+                $newCurrentPage = (int) round($percentage * $totalPages);
+                $bookUpdateData['current_page'] = max(0, min($totalPages, $newCurrentPage));
+            } else {
+                $newCurrentPage = (int) round($percentage * 100);
+                $bookUpdateData['current_page'] = max(0, min(100, $newCurrentPage));
+            }
+
+            if ($highestReadIndex === $totalSections) {
+                $bookUpdateData['reading_status'] = BookReadingStatus::Done;
+            } elseif ($highestReadIndex > 0) {
+                if ($book->reading_status === BookReadingStatus::PlannedForFuture || $book->reading_status === BookReadingStatus::Done) {
+                    $bookUpdateData['reading_status'] = BookReadingStatus::CurrentlyReading;
+                }
+            } else {
+                // highestReadIndex === 0 (all sections unread / undone)
+                if ($book->reading_status === BookReadingStatus::CurrentlyReading || $book->reading_status === BookReadingStatus::Done) {
+                    $bookUpdateData['reading_status'] = BookReadingStatus::PlannedForFuture;
+                }
+            }
+
+            if (! empty($bookUpdateData)) {
+                $book->update($bookUpdateData);
             }
         }
 

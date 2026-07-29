@@ -50,12 +50,55 @@ const handleLogout = () => {
 };
 
 const getInitials = (title) => {
+    if (!title) return 'BK';
     return title
         .split(' ')
         .slice(0, 2)
         .map(word => word[0])
         .join('')
         .toUpperCase();
+};
+
+const colorThemes = [
+    {
+        bgGradient: 'from-amber-500 via-orange-600 to-red-700',
+        overlayBg: 'bg-gradient-to-t from-orange-950 via-orange-950/90 to-transparent',
+        colorBar: 'bg-orange-600/90',
+        textAccent: 'text-amber-300',
+        progressGrad: 'from-amber-400 to-orange-500',
+    },
+    {
+        bgGradient: 'from-purple-700 via-indigo-800 to-slate-900',
+        overlayBg: 'bg-gradient-to-t from-slate-950 via-purple-950/90 to-transparent',
+        colorBar: 'bg-purple-900/90',
+        textAccent: 'text-purple-300',
+        progressGrad: 'from-purple-400 to-indigo-500',
+    },
+    {
+        bgGradient: 'from-emerald-600 via-teal-800 to-slate-900',
+        overlayBg: 'bg-gradient-to-t from-stone-950 via-teal-950/90 to-transparent',
+        colorBar: 'bg-teal-900/90',
+        textAccent: 'text-teal-300',
+        progressGrad: 'from-emerald-400 to-teal-500',
+    },
+    {
+        bgGradient: 'from-rose-600 via-pink-700 to-purple-900',
+        overlayBg: 'bg-gradient-to-t from-slate-950 via-rose-950/90 to-transparent',
+        colorBar: 'bg-rose-900/90',
+        textAccent: 'text-rose-300',
+        progressGrad: 'from-rose-400 to-pink-500',
+    },
+    {
+        bgGradient: 'from-blue-600 via-cyan-700 to-slate-900',
+        overlayBg: 'bg-gradient-to-t from-slate-950 via-blue-950/90 to-transparent',
+        colorBar: 'bg-blue-900/90',
+        textAccent: 'text-cyan-300',
+        progressGrad: 'from-cyan-400 to-blue-500',
+    },
+];
+
+const getTheme = (id) => {
+    return colorThemes[id % colorThemes.length];
 };
 
 const filters = [
@@ -69,15 +112,35 @@ const filters = [
 const getStatusBadge = (status) => {
     switch (status) {
         case 'currently_reading':
-            return { label: 'Reading', class: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' };
+            return {
+                label: 'Reading',
+                class: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
+                darkClass: 'bg-violet-950/80 text-violet-300 border-violet-500/40'
+            };
         case 'done':
-            return { label: 'Completed', class: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
+            return {
+                label: 'Completed',
+                class: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+                darkClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+            };
         case 'planned_for_future':
-            return { label: 'To Read', class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
+            return {
+                label: 'To Read',
+                class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+                darkClass: 'bg-slate-900/80 text-slate-300 border-slate-700/60'
+            };
         case 'abandoned':
-            return { label: 'Abandoned', class: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' };
+            return {
+                label: 'Abandoned',
+                class: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+                darkClass: 'bg-rose-950/80 text-rose-300 border-rose-500/40'
+            };
         default:
-            return { label: 'Unknown', class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
+            return {
+                label: 'Unknown',
+                class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+                darkClass: 'bg-slate-900/80 text-slate-300 border-slate-700/60'
+            };
     }
 };
 
@@ -132,7 +195,7 @@ const deleteBook = () => {
 <template>
     <Head title="My Library" />
 
-    <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors duration-200">
+    <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
         <!-- Navigation Header -->
         <HeaderNavigation />
 
@@ -143,7 +206,7 @@ const deleteBook = () => {
             <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">My Library</h1>
-                    <p class="text-sm text-slate-500 mt-2">Manage your book collection, reading progress, and documents.</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Manage your book collection, reading progress, and documents.</p>
                 </div>
                 <div>
                     <Link
@@ -205,103 +268,109 @@ const deleteBook = () => {
             </div>
 
             <!-- Books Grid -->
-            <div v-if="books.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div v-if="books.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
                 <div
                     v-for="book in books"
                     :key="book.id"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-5 shadow hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300"
+                    class="group relative flex flex-col justify-between rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-slate-900 hover:scale-[1.02] transition-all duration-300"
                 >
-                    <div>
-                        <!-- Book Cover and Status Badge -->
-                        <Link
-                            :href="'/books/' + book.id"
-                            class="block w-full h-44 rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-3 text-center mb-4 cursor-pointer"
-                        >
+                    <!-- Book Cover & Slider-style Overlay Container -->
+                    <div class="relative aspect-[4/5] w-full overflow-hidden bg-slate-900">
+                        <Link :href="'/books/' + book.id" class="block w-full h-full">
+                            <!-- Cover Image or Graphic -->
                             <img
                                 v-if="book.thumbnail_url && !brokenImages[book.id]"
                                 :src="book.thumbnail_url"
                                 :alt="book.title"
                                 @error="handleImageError(book.id)"
-                                class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
-                            <div v-else class="flex flex-col items-center justify-center h-full">
-                                <svg class="h-10 w-10 text-white/50 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                                <span class="text-base font-extrabold text-white leading-tight tracking-wider">{{ getInitials(book.title) }}</span>
+                            <div
+                                v-else
+                                :class="['w-full h-full bg-gradient-to-br flex flex-col items-center justify-center p-6 text-center', getTheme(book.id).bgGradient]"
+                            >
+                                <span class="text-4xl font-black text-white tracking-widest uppercase drop-shadow-md">
+                                    {{ getInitials(book.title) }}
+                                </span>
                             </div>
+                        </Link>
 
+                        <!-- Top Badges Overlay -->
+                        <div class="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none z-10">
                             <!-- File Type Badge -->
-                            <span class="absolute top-3 left-3 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-black/60 text-white backdrop-blur-sm">
-                                {{ book.file_type }}
+                            <span class="px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 pointer-events-auto">
+                                {{ book.file_type || 'BOOK' }}
                             </span>
-
                             <!-- Status Badge -->
                             <span
-                                class="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-full border backdrop-blur-sm"
-                                :class="getStatusBadge(book.reading_status).class"
+                                class="px-2.5 py-0.5 rounded-full backdrop-blur-md text-[10px] font-extrabold uppercase tracking-wider border pointer-events-auto shadow-sm"
+                                :class="getStatusBadge(book.reading_status).darkClass"
                             >
                                 {{ getStatusBadge(book.reading_status).label }}
                             </span>
-                        </Link>
+                        </div>
 
-                        <!-- Book Metadata -->
-                        <div class="px-1">
-                            <h3 class="font-bold text-base text-slate-900 dark:text-white leading-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-2">
-                                <Link :href="'/books/' + book.id">{{ book.title }}</Link>
-                            </h3>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ book.author || 'Unknown Author' }}</p>
-                            
-                            <!-- Book Tags -->
-                            <div v-if="book.tags && book.tags.length > 0" class="flex flex-wrap gap-1 mt-3">
-                                <Link
-                                    v-for="tag in book.tags"
-                                    :key="tag.id"
-                                    :href="tagFilter === tag.name ? getFilterUrl(props.statusFilter, null) : getFilterUrl(props.statusFilter, tag.name)"
-                                    class="px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all duration-200 cursor-pointer"
-                                    :class="[
-                                        tagFilter === tag.name
-                                            ? 'bg-violet-600 border-violet-600 text-white'
-                                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-violet-500 hover:text-violet-600 dark:hover:text-violet-400'
-                                    ]"
-                                >
-                                    {{ tag.name }}
-                                </Link>
+                        <!-- Bottom Related Color Overlay (Matching Slider aesthetics) -->
+                        <div :class="['absolute inset-x-0 bottom-0 p-4 pt-14 flex flex-col justify-end border-t border-white/10 backdrop-blur-md pointer-events-none z-10', getTheme(book.id).overlayBg]">
+                            <Link :href="'/books/' + book.id" class="pointer-events-auto">
+                                <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-amber-300 transition-colors">
+                                    {{ book.title }}
+                                </h3>
+                            </Link>
+                            <p class="text-xs text-white/80 font-medium mt-1 truncate">
+                                {{ book.author || 'Unknown Author' }}
+                            </p>
+
+                            <!-- Progress Bar -->
+                            <div class="mt-3 pointer-events-auto">
+                                <div class="flex items-center justify-between text-[11px] font-semibold text-white/90 mb-1">
+                                    <span class="text-white/70">Page {{ book.current_page }} of {{ book.total_pages }}</span>
+                                    <span :class="getTheme(book.id).textAccent">
+                                        {{ book.total_pages > 0 ? Math.round((book.current_page / book.total_pages) * 100) : 0 }}%
+                                    </span>
+                                </div>
+                                <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden border border-white/10">
+                                    <div
+                                        :class="['h-full rounded-full bg-gradient-to-r transition-all duration-500', getTheme(book.id).progressGrad]"
+                                        :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%` }"
+                                    ></div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Progress Section & Activity -->
-                    <div class="mt-5 px-1">
-                        <!-- Pages Progress bar -->
-                        <div>
-                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1.5">
-                                <span>Page {{ book.current_page }} of {{ book.total_pages }}</span>
-                                <span class="font-semibold text-slate-700 dark:text-slate-300">
-                                    {{ book.total_pages > 0 ? Math.round((book.current_page / book.total_pages) * 100) : 0 }}%
-                                </span>
-                            </div>
-                            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                                <div
-                                    class="bg-gradient-to-r from-violet-600 to-indigo-500 h-full rounded-full transition-all duration-300"
-                                    :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%` }"
-                                ></div>
-                            </div>
+                    <!-- Card Footer: Tags & Actions -->
+                    <div class="p-4 bg-slate-900/95 border-t border-white/10 flex flex-col justify-between flex-1 gap-3">
+                        <!-- Book Tags -->
+                        <div v-if="book.tags && book.tags.length > 0" class="flex flex-wrap gap-1.5">
+                            <Link
+                                v-for="tag in book.tags"
+                                :key="tag.id"
+                                :href="tagFilter === tag.name ? getFilterUrl(props.statusFilter, null) : getFilterUrl(props.statusFilter, tag.name)"
+                                class="px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all duration-200 cursor-pointer"
+                                :class="[
+                                    tagFilter === tag.name
+                                        ? 'bg-violet-600 border-violet-600 text-white'
+                                        : 'bg-white/5 border-white/10 text-slate-300 hover:border-violet-500 hover:text-violet-300'
+                                ]"
+                            >
+                                {{ tag.name }}
+                            </Link>
                         </div>
 
-                        <!-- Last Read / Activity & Actions -->
-                        <div class="flex items-center justify-between mt-4 border-t border-slate-100 dark:border-slate-900 pt-3">
-                            <div class="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <!-- Footer Info & Actions -->
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-auto pt-2 border-t border-white/5">
+                            <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                <svg class="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span>Last updated {{ book.updated_at }}</span>
+                                <span>Updated {{ book.updated_at }}</span>
                             </div>
-                            
+
                             <div class="flex items-center gap-1">
                                 <Link
                                     :href="'/books/' + book.id + '/edit'"
-                                    class="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors cursor-pointer"
+                                    class="p-1.5 rounded-lg text-slate-300 hover:text-violet-400 hover:bg-white/10 transition-colors cursor-pointer"
                                     title="Edit Book"
                                 >
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -311,7 +380,7 @@ const deleteBook = () => {
 
                                 <button
                                     @click.prevent.stop="confirmDeleteBook(book)"
-                                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    class="p-1.5 rounded-lg text-slate-300 hover:text-rose-400 hover:bg-white/10 transition-colors cursor-pointer"
                                     title="Delete Book"
                                 >
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

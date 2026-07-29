@@ -672,6 +672,49 @@ class BookControllerTest extends TestCase
         $this->assertFalse($nextChapter->fresh()->is_read);
     }
 
+    public function test_toggling_section_read_updates_book_total_progress_and_reading_status_and_handles_undo(): void
+    {
+        $user = User::factory()->create();
+        $book = Book::factory()->create([
+            'total_pages' => 100,
+            'current_page' => 0,
+            'reading_status' => BookReadingStatus::PlannedForFuture,
+        ]);
+
+        $s1 = BookSection::factory()->create(['book_id' => $book->id, 'order' => 1, 'is_read' => false]);
+        $s2 = BookSection::factory()->create(['book_id' => $book->id, 'order' => 2, 'is_read' => false]);
+        $s3 = BookSection::factory()->create(['book_id' => $book->id, 'order' => 3, 'is_read' => false]);
+        $s4 = BookSection::factory()->create(['book_id' => $book->id, 'order' => 4, 'is_read' => false]);
+
+        // Mark section 2 as read (highest read section index = 2 out of 4 -> 50%)
+        $this->actingAs($user)->patch("/books/{$book->id}/sections/{$s2->id}/toggle-read");
+
+        $book->refresh();
+        $this->assertEquals(50, $book->current_page);
+        $this->assertEquals(BookReadingStatus::CurrentlyReading, $book->reading_status);
+
+        // Mark section 4 as read (highest read section index = 4 out of 4 -> 100%)
+        $this->actingAs($user)->patch("/books/{$book->id}/sections/{$s4->id}/toggle-read");
+
+        $book->refresh();
+        $this->assertEquals(100, $book->current_page);
+        $this->assertEquals(BookReadingStatus::Done, $book->reading_status);
+
+        // Undo marking section 4 as read (un-check s4 -> highest read section index becomes 2 out of 4 -> 50%)
+        $this->actingAs($user)->patch("/books/{$book->id}/sections/{$s4->id}/toggle-read");
+
+        $book->refresh();
+        $this->assertEquals(50, $book->current_page);
+        $this->assertEquals(BookReadingStatus::CurrentlyReading, $book->reading_status);
+
+        // Undo marking section 2 as read (un-check s2 -> 0 sections read -> 0%)
+        $this->actingAs($user)->patch("/books/{$book->id}/sections/{$s2->id}/toggle-read");
+
+        $book->refresh();
+        $this->assertEquals(0, $book->current_page);
+        $this->assertEquals(BookReadingStatus::PlannedForFuture, $book->reading_status);
+    }
+
     public function test_user_can_delete_book_section(): void
     {
         $user = User::factory()->create();
