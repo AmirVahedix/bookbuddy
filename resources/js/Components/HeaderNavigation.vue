@@ -1,6 +1,6 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { computed } from 'vue';
 
 const page = usePage();
 
@@ -16,37 +16,6 @@ const activeIndex = computed(() => {
     if (url.startsWith('/summaries')) return 2;
     return 0; // default /dashboard
 });
-
-const navRef = ref(null);
-const indicatorStyle = ref({
-    left: '0px',
-    width: '0px',
-    opacity: 0,
-});
-
-const updateIndicator = () => {
-    nextTick(() => {
-        if (!navRef.value) return;
-        // active tab child element index offset (+1 for indicator div)
-        const activeTabEl = navRef.value.children[activeIndex.value + 1];
-        if (activeTabEl) {
-            indicatorStyle.value = {
-                left: `${activeTabEl.offsetLeft}px`,
-                width: `${activeTabEl.offsetWidth}px`,
-                opacity: 1,
-            };
-        }
-    });
-};
-
-onMounted(() => {
-    updateIndicator();
-    window.addEventListener('resize', updateIndicator);
-});
-
-watch(activeIndex, () => {
-    updateIndicator();
-});
 </script>
 
 <template>
@@ -55,24 +24,17 @@ watch(activeIndex, () => {
             <!-- Glossy specular highlight layer for liquid glass look -->
             <div class="absolute inset-0 rounded-full bg-gradient-to-b from-white/25 via-white/5 to-transparent pointer-events-none"></div>
 
-            <!-- Navigation Tabs with Smooth Bi-directional Sliding Active Pill -->
-            <nav ref="navRef" class="relative inline-flex items-center gap-1 px-1 py-0.5 z-10">
-                <!-- Animated Active Indicator Pill -->
-                <div
-                    class="absolute top-0 bottom-0 rounded-full bg-white/20 dark:bg-white/25 border border-white/20 shadow-md backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none"
-                    :style="indicatorStyle"
-                ></div>
-
-                <!-- Tab Links -->
+            <!-- Navigation Tabs with Quick Fade Active Bubble -->
+            <nav class="relative inline-flex items-center gap-1 px-1 py-0.5 z-10">
                 <Link
                     v-for="(tab, idx) in tabs"
                     :key="tab.href"
                     :href="tab.href"
-                    class="relative z-10 px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full transition-colors duration-200 cursor-pointer select-none whitespace-nowrap"
+                    class="relative z-10 px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-150 ease-out cursor-pointer select-none whitespace-nowrap"
                     :class="[
                         activeIndex === idx
-                            ? 'text-white font-bold drop-shadow'
-                            : 'text-slate-300 hover:text-white'
+                            ? 'bg-gradient-to-b from-white/30 to-white/15 dark:from-white/30 dark:to-white/20 border border-white/30 shadow-[0_2px_8px_rgba(0,0,0,0.2)] backdrop-blur-md text-white font-bold drop-shadow'
+                            : 'text-slate-300 hover:text-white border border-transparent'
                     ]"
                 >
                     {{ tab.label }}
