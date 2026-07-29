@@ -1,11 +1,11 @@
 <template>
-    <header class="border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-955 transition-colors duration-200 shrink-0 pt-[env(safe-area-inset-top)]">
+    <header class="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors duration-200 shrink-0 pt-[env(safe-area-inset-top)]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <!-- Back & Details -->
-            <div class="flex items-center gap-4 min-w-0">
+            <div class="flex items-center gap-3.5 min-w-0">
                 <Link
                     :href="'/books/' + props.book.id"
-                    class="p-2 rounded-xl border border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 transition-colors cursor-pointer shrink-0"
+                    class="p-2 rounded-xl border border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
                     title="Back to Book"
                 >
                     <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -13,8 +13,7 @@
                     </svg>
                 </Link>
                 <div class="min-w-0">
-                    <span class="text-[10px] text-violet-600 dark:text-violet-400 font-extrabold uppercase tracking-widest block">Summary Reader</span>
-                    <h1 class="font-bold text-sm text-slate-900 dark:text-white line-clamp-1 mt-0.5 leading-tight font-sans">
+                    <h1 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-1 leading-tight font-sans">
                         {{ props.book.title }}
                     </h1>
                 </div>
@@ -25,7 +24,7 @@
                 <!-- Reading Settings Button -->
                 <button
                     @click="emit('open-settings')"
-                    class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer flex items-center justify-center"
+                    class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer flex items-center justify-center"
                     title="Reading Settings (Font & Text Size)"
                     aria-label="Reading Settings"
                 >
@@ -37,7 +36,7 @@
                 <!-- Theme Toggle -->
                 <button
                     @click="emit('toggle-theme')"
-                    class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer"
+                    class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer"
                     aria-label="Toggle theme"
                 >
                     <svg v-if="props.isDarkMode" class="h-5 w-5 text-amber-400 animate-[spin_8s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

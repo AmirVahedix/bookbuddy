@@ -405,14 +405,7 @@ const deleteBook = () => {
         <HeaderNavigation />
 
         <!-- Main Body -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-16">
-            <!-- Breadcrumbs -->
-            <div class="mb-6 flex items-center gap-2 text-xs text-slate-500 font-medium">
-                <Link href="/books" class="hover:text-violet-600 transition-colors">My Books</Link>
-                <span>/</span>
-                <span class="text-slate-800 dark:text-slate-200 line-clamp-1">{{ props.book.title }}</span>
-            </div>
-
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-24 sm:pb-16">
             <!-- Book Top Header Info Card -->
             <div class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xl mb-8 transition-colors duration-200 relative overflow-hidden">
                 <div class="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-600/5 blur-3xl"></div>

@@ -14,31 +14,24 @@
                 required
             />
 
-            <!-- Actions section -->
-            <div class="flex items-center shrink-0">
-                <!-- Send Button with Smooth Transition -->
-                <Transition
-                    enter-active-class="transition-all duration-300 ease-out"
-                    enter-from-class="max-w-0 opacity-0 scale-90 translate-x-2"
-                    enter-to-class="max-w-[50px] opacity-100 scale-100 translate-x-0"
-                    leave-active-class="transition-all duration-200 ease-in"
-                    leave-from-class="max-w-[50px] opacity-100 scale-100 translate-x-0"
-                    leave-to-class="max-w-0 opacity-0 scale-90 translate-x-2"
+            <!-- Actions section: Submit Button -->
+            <div class="flex items-center shrink-0 pl-1">
+                <button
+                    type="submit"
+                    class="p-2.5 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center shrink-0 shadow-md"
+                    :class="[
+                        props.modelValue && props.modelValue.trim() && !props.processing
+                            ? 'bg-gradient-to-tr from-violet-600 to-indigo-500 text-white hover:from-violet-500 hover:to-indigo-400 shadow-violet-500/25 active:scale-95'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70'
+                    ]"
+                    :disabled="!props.modelValue || !props.modelValue.trim() || props.processing"
+                    title="Send message"
                 >
-                    <div v-if="props.modelValue && props.modelValue.trim()" class="overflow-hidden flex items-center pl-1">
-                        <button
-                            type="submit"
-                            class="p-2 bg-gradient-to-tr from-violet-600 to-indigo-500 text-white rounded-full hover:from-violet-500 hover:to-indigo-400 transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-md shadow-violet-500/20 active:scale-95 duration-200"
-                            :disabled="props.processing"
-                            title="Send message"
-                        >
-                            <!-- Right Arrow Icon -->
-                            <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                            </svg>
-                        </button>
-                    </div>
-                </Transition>
+                    <!-- Right Arrow Icon / Submit -->
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                </button>
             </div>
         </form>
     </div>
@@ -58,4 +51,3 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'submit']);
 </script>
-
