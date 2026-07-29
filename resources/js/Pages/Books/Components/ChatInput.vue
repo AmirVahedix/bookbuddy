@@ -1,7 +1,7 @@
 <template>
     <div
         class="fixed bottom-4 left-4 right-4 z-40 flex bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800/80 rounded-full py-2.5 px-5 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.08),0_4px_12px_-5px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300
-               lg:fixed lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2 lg:w-full lg:max-w-2xl lg:right-auto lg:py-3 lg:px-6"
+               md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md lg:max-w-lg md:right-auto md:bottom-6 md:py-3 md:px-6"
     >
         <form @submit.prevent="emit('submit')" class="flex-1 flex gap-3 items-center justify-between">
             <input
@@ -15,24 +15,7 @@
             />
 
             <!-- Actions section -->
-            <div class="flex items-center gap-3 shrink-0">
-                <!-- Model Select -->
-                <div class="relative flex items-center select-container">
-                    <select
-                        v-model="selectedModel"
-                        class="appearance-none bg-transparent border-0 focus:ring-0 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer pr-5 py-1 focus:outline-none transition-colors"
-                    >
-                        <option value="gemini-2.5-flash" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Flash</option>
-                        <option value="gemini-2.5-pro" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Pro</option>
-                        <option value="gemini-2.5-flash-lite" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Flash-Lite</option>
-                    </select>
-                    <div class="pointer-events-none absolute right-1 flex items-center text-slate-400 dark:text-slate-500">
-                        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    </div>
-                </div>
-
+            <div class="flex items-center shrink-0">
                 <!-- Send Button with Smooth Transition -->
                 <Transition
                     enter-active-class="transition-all duration-300 ease-out"
@@ -62,8 +45,6 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-
 const props = defineProps({
     modelValue: {
         type: String,
@@ -76,7 +57,5 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue', 'submit']);
-
-const selectedModel = ref('gemini-2.5-flash');
 </script>
 

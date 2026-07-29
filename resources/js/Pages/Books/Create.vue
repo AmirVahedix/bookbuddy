@@ -2,6 +2,7 @@
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
+import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
 const props = defineProps({
     auth: {
@@ -185,75 +186,7 @@ const submit = () => {
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors duration-200">
         <!-- Navigation Header -->
-        <header class="border-b border-slate-200 dark:border-slate-900 bg-white/80 dark:bg-slate-950/80 backdrop-blur sticky top-0 z-40 transition-colors duration-200 pt-[env(safe-area-inset-top)]">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                <!-- Brand -->
-                <div class="flex items-center gap-6">
-                    <Link href="/dashboard" class="flex items-center gap-3 group">
-                        <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200">
-                            <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
-                        </div>
-                        <span class="font-bold text-lg tracking-tight text-slate-900 dark:text-white">BookBuddy</span>
-                    </Link>
-
-                    <!-- Nav Links -->
-                    <nav class="hidden sm:flex items-center gap-1">
-                        <Link
-                            href="/dashboard"
-                            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900"
-                        >
-                            Dashboard
-                        </Link>
-                        <Link
-                            href="/books"
-                            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900"
-                        >
-                            My Books
-                        </Link>
-                        <Link
-                            href="/summaries"
-                            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900"
-                        >
-                            Summaries
-                        </Link>
-                    </nav>
-                </div>
-
-                <!-- User Profile & Actions -->
-                <div class="flex items-center gap-4">
-                    <!-- Theme Toggle Button -->
-                    <button
-                        @click="toggleTheme"
-                        class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer"
-                        aria-label="Toggle theme"
-                    >
-                        <svg v-if="isDarkMode" class="h-5 w-5 text-amber-400 animate-[spin_8s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.364 17.636l-.707.707M17.636 17.636l-.707-.707M6.364 5.636l-.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <svg v-else class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                        </svg>
-                    </button>
-
-                    <div class="hidden md:flex flex-col text-right">
-                        <span class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ auth.user.name }}</span>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">{{ auth.user.email }}</span>
-                    </div>
-
-                    <button
-                        @click="handleLogout"
-                        class="inline-flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-all duration-200 active:scale-[0.98] cursor-pointer"
-                    >
-                        <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Sign Out
-                    </button>
-                </div>
-            </div>
-        </header>
+        <HeaderNavigation />
 
         <!-- Page Content -->
         <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-24 sm:pb-10">

@@ -40,6 +40,29 @@ class BookController extends Controller
             ->get()
             ->map(fn (Book $book) => $this->transformBook($book));
 
+        $doneBooks = Book::with('tags')->where('reading_status', BookReadingStatus::Done)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(fn (Book $book) => $this->transformBook($book));
+
+        $latestSummaries = Summary::with(['book.media', 'bookSection'])
+            ->orderByDesc('created_at')
+            ->take(8)
+            ->get()
+            ->map(fn (Summary $s) => [
+                'id' => $s->id,
+                'book_id' => $s->book_id,
+                'book_title' => $s->book?->title,
+                'book_author' => $s->book?->author,
+                'book_thumbnail_url' => $s->book?->getFirstMediaUrl('thumbnail'),
+                'section_title' => $s->section_title,
+                'target_pages' => $s->target_pages,
+                'prompt_used' => $s->prompt_used,
+                'generated_summary' => $s->generated_summary,
+                'tokens_used' => $s->tokens_used,
+                'created_at' => $s->created_at->diffForHumans(),
+            ]);
+
         $totalBooks = Book::count();
         $activeSummaries = Summary::count();
         $pagesRead = Book::sum('current_page');
@@ -51,6 +74,8 @@ class BookController extends Controller
 
         return Inertia::render('Dashboard', [
             'currentlyReading' => $currentlyReading,
+            'doneBooks' => $doneBooks,
+            'latestSummaries' => $latestSummaries,
             'stats' => [
                 'total_books' => $totalBooks,
                 'active_summaries' => $activeSummaries,

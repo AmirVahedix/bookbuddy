@@ -18,11 +18,19 @@
         <title inertia>{{ config('app.name', 'BookBuddy') }}</title>
 
         <script>
-            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
+            (function() {
+                localStorage.removeItem('theme');
+                const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
+                function updateTheme() {
+                    if (darkMedia.matches) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                }
+                updateTheme();
+                darkMedia.addEventListener('change', updateTheme);
+            })();
         </script>
 
         @vite(['resources/js/app.js', 'resources/css/app.css'])

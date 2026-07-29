@@ -5,8 +5,7 @@ import { renderMarkdown } from '../../utils/markdown.js';
 
 // Subcomponents
 import SummaryHeader from './Components/SummaryHeader.vue';
-import TypographyControls from './Components/TypographyControls.vue';
-import PromptAccordion from './Components/PromptAccordion.vue';
+import ReadingSettingsModal from './Components/ReadingSettingsModal.vue';
 import ChatMessages from './Components/ChatMessages.vue';
 import ChatInput from './Components/ChatInput.vue';
 
@@ -30,8 +29,8 @@ const activeSummaryId = ref(props.initialSummaryId || (props.summaries[0]?.id ||
 
 // Reading layout controls
 const fontSize = ref('base'); // 'sm', 'base', 'lg'
-const fontStyle = ref('serif'); // 'sans', 'serif', 'mono'
-const copySuccess = ref(false);
+const fontStyle = ref('sans'); // 'sans', 'serif', 'mono'
+const isSettingsOpen = ref(false);
 
 // Chat state
 const isChatOpen = ref(true);
@@ -124,7 +123,6 @@ const toggleTheme = () => {
     }
 };
 
-
 const formatPages = (targetPages) => {
     if (!targetPages || targetPages.length === 0) return 'Whole Book';
     if (targetPages.length > 5) {
@@ -153,17 +151,6 @@ const allChatMessages = computed(() => {
     const messages = [...(activeSummary.value?.chat_messages || [])];
     return [...messages, ...pendingMessages.value];
 });
-
-// Copy to Clipboard
-const copySummary = () => {
-    if (!activeSummary.value?.generated_summary) return;
-    navigator.clipboard.writeText(activeSummary.value.generated_summary).then(() => {
-        copySuccess.value = true;
-        setTimeout(() => {
-            copySuccess.value = false;
-        }, 2000);
-    });
-};
 
 const scrollToBottom = () => {
     const doScroll = () => {
@@ -240,91 +227,80 @@ watch(activeSummaryId, () => {
     <Head :title="'Summaries - ' + props.book.title" />
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-955 dark:text-slate-100 flex flex-col transition-colors duration-200">
-        <!-- Navigation Header -->
-        <SummaryHeader
-            :book="props.book"
-            :isDarkMode="isDarkMode"
-            @toggle-theme="toggleTheme"
-        />
-
         <!-- Main Workspace -->
         <div class="flex-1 flex overflow-hidden min-h-0">
-            <!-- Reading Pane (Right/Center) -->
+            <!-- Reading Pane -->
             <main class="flex-1 bg-white dark:bg-slate-900 flex flex-col min-w-0 overflow-hidden relative">
                 <div v-if="activeSummary" class="flex-1 flex flex-col min-h-0 animate-fade-in">
-                    <!-- Controls Bar -->
-                    <TypographyControls
-                        v-model:fontStyle="fontStyle"
-                        v-model:fontSize="fontSize"
-                        :copySuccess="copySuccess"
-                        @copy="copySummary"
-                    />
-
-                    <!-- Reading Content -->
+                    <!-- Scrollable Content Area containing Header and Article -->
                     <div
                         ref="chatMessagesContainer"
-                        class="flex-1 overflow-y-auto px-4 pt-8 pb-36 sm:px-6 md:px-12 md:pt-12 md:pb-44 lg:pb-32"
+                        class="flex-1 overflow-y-auto"
                     >
-                        <div class="max-w-2xl mx-auto space-y-6">
-                            <!-- Header metadata -->
-                            <div class="border-b border-slate-100 dark:border-slate-800 pb-5">
-                                <div class="flex flex-wrap items-center gap-2 mb-3">
-                                    <span v-if="activeSummary.section_title" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/20">
-                                        {{ activeSummary.section_title }}
-                                    </span>
-                                    <span v-if="activeSummary.target_pages && activeSummary.target_pages.length > 0" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
-                                        {{ formatPages(activeSummary.target_pages) }}
-                                    </span>
-                                    <span class="text-xs text-slate-400 font-medium ml-auto flex items-center gap-1.5 shrink-0">
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
-                                        {{ readingTime }} min read
-                                    </span>
+                        <!-- Non-sticky Navigation Header inside scroll area -->
+                        <SummaryHeader
+                            :book="props.book"
+                            :isDarkMode="isDarkMode"
+                            @toggle-theme="toggleTheme"
+                            @open-settings="isSettingsOpen = true"
+                        />
+
+                        <!-- Main Reading Body -->
+                        <div class="px-4 pt-6 pb-36 sm:px-6 md:px-12 md:pt-8 md:pb-44 lg:pb-32">
+                            <div class="max-w-2xl mx-auto space-y-6">
+                                <!-- Header metadata -->
+                                <div class="border-b border-slate-100 dark:border-slate-800 pb-5">
+                                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                                        <span v-if="activeSummary.target_pages && activeSummary.target_pages.length > 0" class="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/20">
+                                            {{ formatPages(activeSummary.target_pages) }}
+                                        </span>
+                                        <span class="text-xs text-slate-400 font-medium ml-auto flex items-center gap-1.5 shrink-0">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                            </svg>
+                                            {{ readingTime }} min read
+                                        </span>
+                                    </div>
+
+                                    <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                                        {{ activeSummary.section_title || 'Section' }}
+                                    </h2>
+                                    <p class="text-xs text-slate-400 mt-2 font-medium">Generated {{ activeSummary.created_at }}</p>
                                 </div>
 
-                                <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                                    {{ activeSummary.section_title || 'Section' }}
-                                </h2>
-                                <p class="text-xs text-slate-400 mt-2 font-medium">Generated {{ activeSummary.created_at }}</p>
+                                <!-- Live Streaming Status Indicator -->
+                                <div v-if="isStreaming" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 rounded-full animate-pulse border border-violet-200/30">
+                                    <span class="w-2 h-2 rounded-full bg-violet-600 animate-ping"></span>
+                                    AI is generating summary live...
+                                </div>
+
+                                <!-- Error alert -->
+                                <div v-if="streamError" class="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs border border-red-200/40">
+                                    <strong>Error generating summary:</strong> {{ streamError }}
+                                </div>
+
+                                <!-- Markdown reading pane -->
+                                <article
+                                    class="prose dark:prose-invert max-w-none transition-all duration-200"
+                                    :class="[
+                                        fontSize === 'sm' ? 'text-xs md:text-sm' : fontSize === 'lg' ? 'text-base md:text-lg' : 'text-sm md:text-base',
+                                        fontStyle === 'serif' ? 'font-serif tracking-normal leading-relaxed' : fontStyle === 'mono' ? 'font-mono text-xs leading-normal' : 'font-sans tracking-wide leading-relaxed'
+                                    ]"
+                                    v-html="renderMarkdown(streamedContent || activeSummary.generated_summary)"
+                                ></article>
+
+                                <!-- Inline Discussion / AI Chat Messages -->
+                                <ChatMessages
+                                    :messages="allChatMessages"
+                                    :processing="chatForm.processing"
+                                    :fontSize="fontSize"
+                                    :fontStyle="fontStyle"
+                                />
                             </div>
-
-                            <!-- Collapsible prompt accordion -->
-                            <PromptAccordion :summary="activeSummary" />
-
-                            <!-- Live Streaming Status Indicator -->
-                            <div v-if="isStreaming" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 rounded-full animate-pulse border border-violet-200/30">
-                                <span class="w-2 h-2 rounded-full bg-violet-600 animate-ping"></span>
-                                AI is generating summary live...
-                            </div>
-
-                            <!-- Error alert -->
-                            <div v-if="streamError" class="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs border border-red-200/40">
-                                <strong>Error generating summary:</strong> {{ streamError }}
-                            </div>
-
-                            <!-- Markdown reading pane -->
-                            <article
-                                class="prose dark:prose-invert max-w-none transition-all duration-200"
-                                :class="[
-                                    fontSize === 'sm' ? 'text-xs md:text-sm' : fontSize === 'lg' ? 'text-base md:text-lg' : 'text-sm md:text-base',
-                                    fontStyle === 'serif' ? 'font-serif tracking-normal leading-relaxed' : fontStyle === 'mono' ? 'font-mono text-xs leading-normal' : 'font-sans tracking-wide leading-relaxed'
-                                ]"
-                                v-html="renderMarkdown(streamedContent || activeSummary.generated_summary)"
-                            ></article>
-
-
-                            <!-- Inline Discussion / AI Chat Messages -->
-                            <ChatMessages
-                                :messages="allChatMessages"
-                                :processing="chatForm.processing"
-                                :fontSize="fontSize"
-                                :fontStyle="fontStyle"
-                            />
                         </div>
                     </div>
 
-                    <!-- Decorative Radial Background Glow behind chat input (matched with accent gradient colors) -->
+                    <!-- Decorative Radial Background Glow behind chat input -->
                     <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-36 bg-gradient-to-r from-violet-300/25 to-indigo-300/25 dark:from-violet-950/20 dark:to-indigo-950/20 blur-[80px] rounded-full pointer-events-none z-30"></div>
 
                     <!-- Floating Glass UI Chat Input Bar -->
@@ -337,7 +313,13 @@ watch(activeSummaryId, () => {
 
                 <!-- Empty state if no summaries exist -->
                 <div v-else class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                    <div class="max-w-sm space-y-4">
+                    <SummaryHeader
+                        :book="props.book"
+                        :isDarkMode="isDarkMode"
+                        @toggle-theme="toggleTheme"
+                        @open-settings="isSettingsOpen = true"
+                    />
+                    <div class="flex-1 flex flex-col items-center justify-center max-w-sm space-y-4 my-auto">
                         <div class="h-16 w-16 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center text-amber-500 shadow-md">
                             <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -361,6 +343,14 @@ watch(activeSummaryId, () => {
                 </div>
             </main>
         </div>
+
+        <!-- Reading Settings Modal -->
+        <ReadingSettingsModal
+            v-model:fontStyle="fontStyle"
+            v-model:fontSize="fontSize"
+            :isOpen="isSettingsOpen"
+            @close="isSettingsOpen = false"
+        />
     </div>
 </template>
 
