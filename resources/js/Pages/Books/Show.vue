@@ -23,12 +23,6 @@ const props = defineProps({
 });
 
 const isDarkMode = ref(false);
-const selectionMode = ref('range'); // 'range' or 'specific'
-const selectedPagesInput = ref('');
-const startPage = ref(1);
-const endPage = ref(props.book.total_pages > 0 ? Math.min(5, props.book.total_pages) : 5);
-const customPrompt = ref('');
-const isSummarizing = ref(false);
 const activeSummaryTab = ref('all'); // 'all' or 'ai'
 
 // Table of Contents Collapsible State
@@ -78,14 +72,6 @@ const visibleSections = computed(() => {
 const progressForm = useForm({
     current_page: props.book.current_page,
     reading_status: props.book.reading_status,
-});
-
-// Summarize form
-const summarizeForm = useForm({
-    start_page: null,
-    end_page: null,
-    pages: [],
-    prompt: '',
 });
 
 onMounted(() => {
@@ -173,57 +159,7 @@ const deleteSection = (sec) => {
     }
 };
 
-// Preset LLM prompts
-const presets = [
-    { label: 'Core Concepts', text: 'Analyze the text and summarize the core technical concepts, design choices, and architectural patterns introduced in this section.' },
-    { label: 'Key Takeaways', text: 'Provide a structured bullet-point summary of the key takeaways, principles, and lessons learned from these pages.' },
-    { label: 'Compare/Contrast', text: 'Examine any contrasting ideas, comparison of systems, algorithms, or approaches explained in this range.' },
-];
 
-const applyPreset = (promptText) => {
-    customPrompt.value = promptText;
-};
-
-const generateSummary = () => {
-    isSummarizing.value = true;
-    
-    // Configure form fields
-    summarizeForm.prompt = customPrompt.value;
-    if (selectionMode.value === 'range') {
-        summarizeForm.start_page = startPage.value;
-        summarizeForm.end_page = endPage.value;
-        summarizeForm.pages = [];
-    } else {
-        summarizeForm.start_page = null;
-        summarizeForm.end_page = null;
-        // Parse list like "1, 2, 5-7"
-        const pages = [];
-        const parts = selectedPagesInput.value.split(',');
-        for (let part of parts) {
-            part = part.trim();
-            if (part.includes('-')) {
-                const [start, end] = part.split('-').map(Number);
-                if (start && end && start <= end) {
-                    for (let i = start; i <= end; i++) pages.push(i);
-                }
-            } else if (Number(part)) {
-                pages.push(Number(part));
-            }
-        }
-        summarizeForm.pages = pages;
-    }
-
-    summarizeForm.post(`/books/${props.book.id}/summarize`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            isSummarizing.value = false;
-            customPrompt.value = '';
-        },
-        onError: () => {
-            isSummarizing.value = false;
-        }
-    });
-};
 
 // Simple Markdown Renderer
 const renderMarkdown = (text) => {
@@ -679,12 +615,10 @@ const deleteBook = () => {
                 </div>
             </div>
 
-            <!-- Page Layout Columns -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <!-- Summaries Section (Left 8 columns) -->
-                <div class="lg:col-span-8 flex flex-col gap-8 animate-fade-in">
-                    <!-- Book Summaries List Card -->
-                    <div class="order-2 lg:order-1 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
+            <!-- Page Layout -->
+            <div class="flex flex-col gap-8 animate-fade-in">
+                <!-- Book Summaries List Card -->
+                <div class="order-2 lg:order-1 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
                         <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4 gap-4">
                             <div>
                                 <h2 class="font-black text-xl text-slate-900 dark:text-white flex items-center gap-2">
@@ -792,7 +726,7 @@ const deleteBook = () => {
                             </svg>
                             <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">No Summaries Found</h3>
                             <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                                {{ props.summaries.length > 0 ? "Adjust your search filters to find summaries." : "Start by generating an AI summary of a section or page range in the sidebar." }}
+                                {{ props.summaries.length > 0 ? "Adjust your search filters to find summaries." : "Start by generating an AI summary of a section from Table of Contents or while reading." }}
                             </p>
                         </div>
                     </div>
@@ -879,119 +813,8 @@ const deleteBook = () => {
                             No table of contents available for this book.
                         </div>
                     </div>
-                </div>
-
-            <!-- Right 4 columns: AI Summarizer -->
-            <div class="lg:col-span-4 flex flex-col gap-8 animate-fade-in">
-                <!-- LLM Summarization Panel (PDF only) -->
-                <div v-if="props.book.file_type === 'pdf'" class="rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow relative overflow-hidden">
-                    <div class="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-violet-600/5 blur-2xl"></div>
-                    
-                    <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2 relative z-10">
-                        <div class="h-6 w-6 rounded bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center">
-                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                        </div>
-                        AI Page Summarizer
-                    </h2>
-
-                    <!-- Inputs -->
-                    <div class="space-y-4 relative z-10">
-                        <!-- Toggle Mode -->
-                        <div class="flex border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden p-0.5 bg-slate-50 dark:bg-slate-900">
-                            <button
-                                @click="selectionMode = 'range'"
-                                class="flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer"
-                                :class="selectionMode === 'range' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
-                            >
-                                Page Range
-                            </button>
-                            <button
-                                @click="selectionMode = 'specific'"
-                                class="flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer"
-                                :class="selectionMode === 'specific' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
-                            >
-                                Specific Pages
-                            </button>
-                        </div>
-
-                        <!-- Page selection inputs -->
-                        <div v-if="selectionMode === 'range'" class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Start Page</label>
-                                <input
-                                    type="number"
-                                    v-model="startPage"
-                                    min="1"
-                                    :max="props.book.total_pages"
-                                    class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500"
-                                />
-                            </div>
-                            <div>
-                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">End Page</label>
-                                <input
-                                    type="number"
-                                    v-model="endPage"
-                                    min="1"
-                                    :max="props.book.total_pages"
-                                    class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500"
-                                />
-                            </div>
-                        </div>
-                        <div v-else>
-                            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Selected Pages (comma separated)</label>
-                            <input
-                                type="text"
-                                v-model="selectedPagesInput"
-                                placeholder="e.g. 1, 3, 5-7"
-                                class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500"
-                            />
-                        </div>
-
-                        <!-- Preset prompts -->
-                        <div>
-                            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Prompt Presets</label>
-                            <div class="flex flex-wrap gap-1.5">
-                                <button
-                                    v-for="preset in presets"
-                                    :key="preset.label"
-                                    @click="applyPreset(preset.text)"
-                                    class="px-2 py-1 text-[9px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 hover:border-violet-500/50 hover:bg-violet-500/5 text-slate-555 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition-all cursor-pointer"
-                                >
-                                    {{ preset.label }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Custom Prompt -->
-                        <div>
-                            <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Custom Prompt Instructions</label>
-                            <textarea
-                                v-model="customPrompt"
-                                rows="3"
-                                placeholder="Instruct the AI on what to focus on..."
-                                class="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800 focus:outline-none focus:border-violet-500 resize-none"
-                            ></textarea>
-                        </div>
-
-                        <!-- Summarize Button -->
-                        <button
-                            @click="generateSummary"
-                            :disabled="isSummarizing || !customPrompt"
-                            class="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-violet-600/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                            <span v-if="isSummarizing" class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
-                            <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            {{ isSummarizing ? 'Generating Summary...' : 'Summarize Selection' }}
-                        </button>
-                    </div>
-                </div>
             </div>
-        </div>
-    </main>
+        </main>
 
         <!-- Predefined Prompts Summarize Modal -->
         <div v-if="isSummarizeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
