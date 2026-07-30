@@ -134,8 +134,51 @@ const submitProgress = () => {
 };
 
 const toggleSectionRead = (sec) => {
+    if (!sec) return;
+
+    const targetIdx = props.sections.findIndex(s => s.id === sec.id);
+    if (targetIdx === -1) return;
+
+    const targetSection = props.sections[targetIdx];
+    const newReadStatus = !targetSection.is_read;
+    const parentLevel = targetSection.level || 1;
+
+    // Track original states for rollback if network fails
+    const rollbackMap = new Map();
+
+    // Optimistically update target section
+    rollbackMap.set(targetSection.id, targetSection.is_read);
+    targetSection.is_read = newReadStatus;
+
+    // Optimistically update child sections
+    for (let i = targetIdx + 1; i < props.sections.length; i++) {
+        const childSec = props.sections[i];
+        const childLevel = childSec.level || 1;
+        if (childLevel > parentLevel) {
+            rollbackMap.set(childSec.id, childSec.is_read);
+            childSec.is_read = newReadStatus;
+        } else {
+            break;
+        }
+    }
+
+    // Keep activeSectionModal in sync if open
+    if (activeSectionModal.value && activeSectionModal.value.id === sec.id) {
+        activeSectionModal.value.is_read = newReadStatus;
+    }
+
     router.patch(`/books/${props.book.id}/sections/${sec.id}/toggle-read`, {}, {
         preserveScroll: true,
+        onError: () => {
+            // Revert on error
+            rollbackMap.forEach((wasRead, id) => {
+                const s = props.sections.find(item => item.id === id);
+                if (s) s.is_read = wasRead;
+            });
+            if (activeSectionModal.value && rollbackMap.has(activeSectionModal.value.id)) {
+                activeSectionModal.value.is_read = rollbackMap.get(activeSectionModal.value.id);
+            }
+        },
     });
 };
 
@@ -304,16 +347,14 @@ i uploaded the content
 ];
 
 const summarizeSection = (sec) => {
+    selectedBookSectionId.value = sec.id;
+    selectedSectionTitle.value = sec.title;
     if (props.book.file_type === 'pdf') {
         rangeStartPage.value = sec.start_page;
         rangeEndPage.value = sec.end_page || sec.start_page;
-        selectedBookSectionId.value = null;
-        selectedSectionTitle.value = '';
     } else {
         rangeStartPage.value = null;
         rangeEndPage.value = null;
-        selectedBookSectionId.value = sec.id;
-        selectedSectionTitle.value = sec.title;
     }
     isSummarizeModalOpen.value = true;
     selectedPredefinedPrompt.value = predefinedPrompts[0].prompt;
@@ -328,11 +369,13 @@ const submitSummaryRequest = () => {
         prompt: selectedPredefinedPrompt.value
     };
 
+    if (selectedBookSectionId.value) {
+        payload.book_section_id = selectedBookSectionId.value;
+    }
+
     if (props.book.file_type === 'pdf') {
         payload.start_page = rangeStartPage.value;
         payload.end_page = rangeEndPage.value;
-    } else {
-        payload.book_section_id = selectedBookSectionId.value;
     }
     
     router.post(`/books/${props.book.id}/summarize`, payload, {
@@ -959,7 +1002,7 @@ const deleteBook = () => {
 
                     <div class="flex items-center gap-2">
                         <button
-                            @click="toggleSectionRead(activeSectionModal); activeSectionModal.is_read = !activeSectionModal.is_read;"
+                            @click="toggleSectionRead(activeSectionModal)"
                             class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer border"
                             :class="activeSectionModal.is_read
                                 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'

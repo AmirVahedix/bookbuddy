@@ -1,11 +1,7 @@
-const CACHE_NAME = 'bookbuddy-v1';
+const CACHE_NAME = 'bookbuddy-v2';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
-  '/',
-  '/dashboard',
-  '/books',
-  '/summaries',
   OFFLINE_URL,
   '/manifest.json',
   '/favicon.svg',
@@ -57,12 +53,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests (HTML pages)
-  if (event.request.mode === 'navigate') {
+  const isInertia = event.request.headers.get('X-Inertia') === 'true';
+  const isNavigate = event.request.mode === 'navigate';
+  const isStaticAsset = url.pathname.startsWith('/build/') ||
+                        /\.(js|css|png|jpg|jpeg|svg|gif|ico|woff|woff2|ttf|eot|manifest\.json)$/i.test(url.pathname);
+
+  // Dynamic routes & Inertia requests: Always Network-First
+  if (isInertia || isNavigate || !isStaticAsset) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache fresh copy of navigable pages
           if (response && response.status === 200) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
@@ -75,18 +75,20 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          const offlinePage = await caches.match(OFFLINE_URL);
-          return offlinePage || new Response('Offline', { status: 503, statusText: 'Offline' });
+          if (isNavigate) {
+            const offlinePage = await caches.match(OFFLINE_URL);
+            if (offlinePage) return offlinePage;
+          }
+          return new Response('Offline', { status: 503, statusText: 'Offline' });
         })
     );
     return;
   }
 
-  // Static Assets (JS, CSS, Images, Fonts)
+  // Static Assets (JS, CSS, Images, Fonts): Stale-While-Revalidate / Cache-First
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Return cached asset & update cache in background (Stale-While-Revalidate)
         fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));

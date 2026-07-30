@@ -560,12 +560,18 @@ class BookController extends Controller
                 $section = $book->sections()
                     ->where('start_page', '<=', $startPage)
                     ->where('end_page', '>=', $startPage)
+                    ->orderByDesc('level')
+                    ->orderByRaw('(end_page - start_page) ASC')
+                    ->orderBy('order')
                     ->first();
 
                 if (! $section) {
                     $section = $book->sections()
                         ->where('start_page', '>=', $startPage)
                         ->orderBy('start_page')
+                        ->orderByDesc('level')
+                        ->orderByRaw('(end_page - start_page) ASC')
+                        ->orderBy('order')
                         ->first();
                 }
 
@@ -581,9 +587,11 @@ class BookController extends Controller
 
         if (empty($apiKey)) {
             $pagesStr = implode(', ', $targetPages);
-            $summaryTitle = $book->file_type === BookFileType::Pdf
-                ? 'Pages '.($validated['start_page'] && $validated['end_page'] ? "{$validated['start_page']}-{$validated['end_page']}" : $pagesStr)
-                : ($section ? $section->title : 'Selected Section');
+            $summaryTitle = $section ? $section->title : (
+                ! empty($targetPages)
+                    ? 'Pages '.(! empty($validated['start_page']) && ! empty($validated['end_page']) ? "{$validated['start_page']}-{$validated['end_page']}" : $pagesStr)
+                    : 'Selected Section'
+            );
 
             $generatedSummary = "# Summary for {$summaryTitle}\n\n".
                 "*(Note: OpenAI API Key was not set in configuration, this is a simulated summary based on your prompt)*\n\n".

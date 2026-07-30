@@ -81,12 +81,18 @@ class Summary extends Model
             $section = BookSection::where('book_id', $this->book_id)
                 ->where('start_page', '<=', $startPage)
                 ->where('end_page', '>=', $startPage)
+                ->orderByDesc('level')
+                ->orderByRaw('(end_page - start_page) ASC')
+                ->orderBy('order')
                 ->first();
 
             if (! $section) {
                 $section = BookSection::where('book_id', $this->book_id)
                     ->where('start_page', '>=', $startPage)
                     ->orderBy('start_page')
+                    ->orderByDesc('level')
+                    ->orderByRaw('(end_page - start_page) ASC')
+                    ->orderBy('order')
                     ->first();
             }
 

@@ -469,6 +469,60 @@ class BookControllerTest extends TestCase
         ]);
     }
 
+    public function test_summarization_associates_with_exact_child_section_over_parent_section(): void
+    {
+        config(['services.openai.api_key' => '']);
+        $user = User::factory()->create();
+        $book = Book::factory()->create(['file_type' => 'pdf']);
+
+        // Parent Chapter covering pages 1 to 50 (Level 1)
+        $parentSection = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'title' => 'Chapter 1: Foundations',
+            'level' => 1,
+            'start_page' => 1,
+            'end_page' => 50,
+            'order' => 1,
+        ]);
+
+        // Child Subsection covering pages 1 to 10 (Level 2)
+        $childSection = BookSection::factory()->create([
+            'book_id' => $book->id,
+            'title' => 'Section 1.1: Introduction',
+            'level' => 2,
+            'start_page' => 1,
+            'end_page' => 10,
+            'order' => 2,
+        ]);
+
+        // 1. Summarize by page range (1-10) without explicitly sending book_section_id
+        $response = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
+            'start_page' => 1,
+            'end_page' => 10,
+            'prompt' => 'Summarize section 1.1',
+        ]);
+
+        $response->assertRedirect();
+        $summary = Summary::latest('id')->first();
+        $this->assertEquals($childSection->id, $summary->book_section_id);
+        $this->assertEquals('Section 1.1: Introduction', $summary->section_title);
+        $this->assertStringContainsString('# Summary for Section 1.1: Introduction', $summary->generated_summary);
+
+        // 2. Summarize with explicit book_section_id
+        $response2 = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
+            'book_section_id' => $childSection->id,
+            'start_page' => 1,
+            'end_page' => 10,
+            'prompt' => 'Explicit section summarize',
+        ]);
+
+        $response2->assertRedirect();
+        $summary2 = Summary::latest('id')->first();
+        $this->assertEquals($childSection->id, $summary2->book_section_id);
+        $this->assertEquals('Section 1.1: Introduction', $summary2->section_title);
+        $this->assertStringContainsString('# Summary for Section 1.1: Introduction', $summary2->generated_summary);
+    }
+
     public function test_authenticated_user_can_summarize_epub_section(): void
     {
         Storage::fake('public');

@@ -663,6 +663,7 @@ const isSummarizeMode = ref(false);
 const summarizeStartPage = ref(null);
 const rangeStartPage = ref(null);
 const rangeEndPage = ref(null);
+const selectedBookSectionId = ref(null);
 const isSummarizeModalOpen = ref(false);
 const selectedPredefinedPrompt = ref('');
 const isSubmittingSummary = ref(false);
@@ -696,9 +697,11 @@ const toggleSummarizeMode = () => {
     if (isSummarizeMode.value) {
         isSummarizeMode.value = false;
         summarizeStartPage.value = null;
+        selectedBookSectionId.value = null;
     } else {
         isSummarizeMode.value = true;
         summarizeStartPage.value = currentPageNum.value;
+        selectedBookSectionId.value = null;
     }
 };
 
@@ -710,6 +713,7 @@ const handlePageClick = (pageNum) => {
     
     rangeStartPage.value = start;
     rangeEndPage.value = end;
+    selectedBookSectionId.value = null;
     
     isSummarizeModalOpen.value = true;
     isSummarizeMode.value = false;
@@ -720,6 +724,7 @@ const handlePageClick = (pageNum) => {
 const summarizeSection = (sec) => {
     rangeStartPage.value = sec.start_page;
     rangeEndPage.value = sec.end_page || sec.start_page;
+    selectedBookSectionId.value = sec.id;
     isSummarizeModalOpen.value = true;
     isSummarizeMode.value = false;
     selectedPredefinedPrompt.value = predefinedPrompts[0].prompt;
@@ -730,16 +735,23 @@ const submitSummaryRequest = () => {
     
     isSubmittingSummary.value = true;
     
-    router.post(`/books/${props.book.id}/summarize`, {
+    const payload = {
         start_page: rangeStartPage.value,
         end_page: rangeEndPage.value,
         prompt: selectedPredefinedPrompt.value
-    }, {
+    };
+
+    if (selectedBookSectionId.value) {
+        payload.book_section_id = selectedBookSectionId.value;
+    }
+
+    router.post(`/books/${props.book.id}/summarize`, payload, {
         preserveScroll: true,
         onSuccess: () => {
             isSubmittingSummary.value = false;
             isSummarizeModalOpen.value = false;
             summarizeStartPage.value = null;
+            selectedBookSectionId.value = null;
         },
         onError: (errors) => {
             isSubmittingSummary.value = false;
