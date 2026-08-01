@@ -1,6 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import OrientationOverlay from './OrientationOverlay.vue';
 
 const page = usePage();
 
@@ -19,6 +20,8 @@ const activeIndex = computed(() => {
 </script>
 
 <template>
+    <OrientationOverlay />
+
     <header class="hidden sm:flex sticky top-0 z-50 w-full justify-center pt-3 pb-2 px-4 transition-all duration-300 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         <div class="relative inline-flex items-center bg-slate-900/60 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/20 dark:border-white/15 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-full px-2 py-1.5 text-white transition-all duration-300">
             <!-- Glossy specular highlight layer for liquid glass look -->

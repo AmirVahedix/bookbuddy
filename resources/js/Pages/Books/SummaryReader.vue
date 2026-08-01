@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { renderMarkdown } from '../../utils/markdown.js';
 
@@ -14,6 +14,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    sections: {
+        type: Array,
+        default: () => [],
+    },
     summaries: {
         type: Array,
         default: () => [],
@@ -26,6 +30,86 @@ const props = defineProps({
 
 const isDarkMode = ref(false);
 const activeSummaryId = ref(props.initialSummaryId || (props.summaries[0]?.id || null));
+
+// Next chapter state
+const isSummarizeModalOpen = ref(false);
+const selectedPredefinedPrompt = ref('');
+const isSubmittingSummary = ref(false);
+
+const predefinedPrompts = [
+    {
+        id: 'executive',
+        name: 'Executive Summary',
+        description: 'Concise, bullet points, actionable insights.',
+        prompt: `You are an expert academic tutor specializing in high-yield exam preparation. Extract a rapid-review summary from the provided book section.\n\n### Content Focus\n* Extract core definitions, critical formulas, rules, and contrastive differences.\n* Present as hyper-scannable bullet points and bold terms.`
+    },
+    {
+        id: 'synopsis',
+        name: 'Detailed Synopsis',
+        description: 'Comprehensive, methodology, conclusions.',
+        prompt: `You are an expert academic tutor. Transform the provided book section into a detailed, structured study guide.\n\n### Formatting\n* Clean Markdown headings (## and ###).\n* Dense, efficient phrasing with bullet points for key concepts.`
+    }
+];
+
+const activeSection = computed(() => {
+    if (!activeSummary.value || !props.sections.length) return null;
+    return props.sections.find(s => s.id === activeSummary.value.book_section_id) || null;
+});
+
+const nextSection = computed(() => {
+    if (!props.sections || props.sections.length === 0) return null;
+    if (!activeSection.value) {
+        return props.sections[1] || props.sections[0] || null;
+    }
+    const currIdx = props.sections.findIndex(s => s.id === activeSection.value.id);
+    if (currIdx !== -1 && currIdx + 1 < props.sections.length) {
+        return props.sections[currIdx + 1];
+    }
+    return null;
+});
+
+const nextSectionSummary = computed(() => {
+    if (!nextSection.value || !props.summaries) return null;
+    return props.summaries.find(s => s.book_section_id === nextSection.value.id) || null;
+});
+
+const handleReadNextChapter = () => {
+    if (!nextSection.value) return;
+    if (nextSectionSummary.value) {
+        activeSummaryId.value = nextSectionSummary.value.id;
+    } else {
+        selectedPredefinedPrompt.value = predefinedPrompts[0].prompt;
+        isSummarizeModalOpen.value = true;
+    }
+};
+
+const submitNextChapterSummary = () => {
+    if (!nextSection.value || !selectedPredefinedPrompt.value) return;
+    
+    isSubmittingSummary.value = true;
+    
+    const payload = {
+        prompt: selectedPredefinedPrompt.value,
+        book_section_id: nextSection.value.id,
+    };
+    
+    if (props.book.file_type === 'pdf' && nextSection.value.start_page) {
+        payload.start_page = nextSection.value.start_page;
+        payload.end_page = nextSection.value.end_page || nextSection.value.start_page;
+    }
+    
+    router.post(`/books/${props.book.id}/summarize`, payload, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isSubmittingSummary.value = false;
+            isSummarizeModalOpen.value = false;
+        },
+        onError: (errors) => {
+            isSubmittingSummary.value = false;
+            alert(Object.values(errors).join('\n') || 'Failed to generate summary.');
+        }
+    });
+};
 
 // Reading layout controls
 const fontSize = ref('base'); // 'sm', 'base', 'lg'
@@ -241,6 +325,7 @@ watch(activeSummaryId, () => {
                         <SummaryHeader
                             :book="props.book"
                             :isDarkMode="isDarkMode"
+                            :activeSectionId="activeSummary ? activeSummary.book_section_id : null"
                             @toggle-theme="toggleTheme"
                             @open-settings="isSettingsOpen = true"
                         />
@@ -296,6 +381,44 @@ watch(activeSummaryId, () => {
                                     :fontSize="fontSize"
                                     :fontStyle="fontStyle"
                                 />
+
+                                <!-- Read Next Chapter Banner / Button -->
+                                <div v-if="nextSection" class="mt-12 border-t border-slate-100 dark:border-slate-800/80 pt-8">
+                                    <div
+                                        @click="handleReadNextChapter"
+                                        class="group relative rounded-2xl border border-violet-200/80 dark:border-violet-900/40 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/30 p-5 hover:border-violet-400 dark:hover:border-violet-700 transition-all duration-200 cursor-pointer shadow-sm hover:shadow"
+                                    >
+                                        <div class="flex items-center justify-between gap-4">
+                                            <div class="min-w-0 flex-1">
+                                                <span class="text-[10px] uppercase font-black tracking-wider text-violet-600 dark:text-violet-400 block mb-1">
+                                                    Read Next Chapter
+                                                </span>
+                                                <h4 class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors line-clamp-1">
+                                                    {{ nextSection.title }}
+                                                </h4>
+                                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+                                                    <span v-if="nextSectionSummary" class="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                        <svg class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                        Summary Ready
+                                                    </span>
+                                                    <span v-else class="inline-flex items-center text-violet-600 dark:text-violet-400 font-semibold">
+                                                        <svg class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                        </svg>
+                                                        Generate AI Summary
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <div class="h-10 w-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -316,6 +439,7 @@ watch(activeSummaryId, () => {
                     <SummaryHeader
                         :book="props.book"
                         :isDarkMode="isDarkMode"
+                        :activeSectionId="null"
                         @toggle-theme="toggleTheme"
                         @open-settings="isSettingsOpen = true"
                     />
@@ -351,6 +475,82 @@ watch(activeSummaryId, () => {
             :isOpen="isSettingsOpen"
             @close="isSettingsOpen = false"
         />
+
+        <!-- Predefined Prompts Summarize Modal for Next Chapter -->
+        <div v-if="isSummarizeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60 dark:bg-slate-955/80 backdrop-blur-sm transition-all" @click="isSummarizeModalOpen = false"></div>
+            
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden relative z-10 transition-all flex flex-col max-h-[85vh]">
+                <div class="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between shadow-md">
+                    <div>
+                        <h3 class="text-base font-bold flex items-center gap-1.5">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Generate Next Chapter Summary
+                        </h3>
+                        <p class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Section: {{ nextSection?.title }}</p>
+                    </div>
+                    <button @click="isSummarizeModalOpen = false" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1 transition-all cursor-pointer">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="p-6 overflow-y-auto space-y-4">
+                    <div>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">Select Predefined Style</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div 
+                                v-for="item in predefinedPrompts" 
+                                :key="item.id"
+                                @click="selectedPredefinedPrompt = item.prompt"
+                                class="border p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between"
+                                :class="selectedPredefinedPrompt === item.prompt 
+                                    ? 'bg-violet-500/5 border-violet-500 dark:border-violet-400 shadow-md ring-2 ring-violet-500/10' 
+                                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40'"
+                            >
+                                <div>
+                                    <h4 class="text-xs font-bold" :class="selectedPredefinedPrompt === item.prompt ? 'text-violet-600 dark:text-violet-400' : 'text-slate-800 dark:text-slate-200'">{{ item.name }}</h4>
+                                    <p class="text-[10px] text-slate-455 dark:text-slate-500 mt-1 leading-normal">{{ item.description }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">Prompt Preview & Editor</label>
+                        <textarea
+                            v-model="selectedPredefinedPrompt"
+                            rows="4"
+                            class="w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-mono text-slate-600 dark:text-slate-300 resize-none leading-relaxed"
+                        ></textarea>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200/50 dark:border-slate-800/80 flex items-center justify-end gap-3 shrink-0">
+                    <button 
+                        @click="isSummarizeModalOpen = false"
+                        :disabled="isSubmittingSummary"
+                        class="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        @click="submitNextChapterSummary"
+                        :disabled="isSubmittingSummary || !selectedPredefinedPrompt"
+                        class="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-lg shadow-violet-500/10"
+                    >
+                        <svg v-if="isSubmittingSummary" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{{ isSubmittingSummary ? 'Generating...' : 'Generate & Read' }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 

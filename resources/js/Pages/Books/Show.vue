@@ -85,7 +85,103 @@ watch(() => props.book, (newBook) => {
 
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
+    autoExpandAccordionPath();
 });
+
+const autoExpandAccordionPath = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openSecIdStr = urlParams.get('open_section');
+    
+    let targetSecId = openSecIdStr ? parseInt(openSecIdStr) : null;
+    
+    if (!targetSecId) {
+        // Find parent sections with children where some children are read and some unread
+        let matchingParentId = null;
+        
+        props.sections.forEach((sec, idx) => {
+            if (hasChildren(idx, props.sections)) {
+                const level = sec.level || 1;
+                let hasReadChild = false;
+                let hasUnreadChild = false;
+                
+                for (let i = idx + 1; i < props.sections.length; i++) {
+                    const childSec = props.sections[i];
+                    if ((childSec.level || 1) > level) {
+                        if (childSec.is_read) hasReadChild = true;
+                        else hasUnreadChild = true;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (hasReadChild && hasUnreadChild) {
+                    matchingParentId = sec.id;
+                }
+            }
+        });
+
+        targetSecId = matchingParentId;
+    }
+
+    if (targetSecId) {
+        const expandAncestry = (secId) => {
+            expandedSections.value[secId] = true;
+            const targetIdx = props.sections.findIndex(s => s.id === secId);
+            if (targetIdx > 0) {
+                const targetLevel = props.sections[targetIdx].level || 1;
+                for (let i = targetIdx - 1; i >= 0; i--) {
+                    const parentCandidate = props.sections[i];
+                    if ((parentCandidate.level || 1) < targetLevel) {
+                        expandedSections.value[parentCandidate.id] = true;
+                        expandAncestry(parentCandidate.id);
+                        break;
+                    }
+                }
+            }
+        };
+        expandAncestry(targetSecId);
+    }
+};
+
+const handleSectionClick = (sec) => {
+    if (!sec) return;
+    const summary = props.summaries.find(s => s.book_section_id === sec.id);
+    if (summary) {
+        router.visit(`/books/${props.book.id}/summaries/${summary.id}?from_section=${sec.id}`);
+    } else {
+        summarizeSection(sec);
+    }
+};
+
+const hasReadSections = computed(() => {
+    return props.sections.some(s => s.is_read);
+});
+
+const lastReadSummary = computed(() => {
+    if (!props.summaries || props.summaries.length === 0) return null;
+    
+    const readSectionIds = new Set(props.sections.filter(s => s.is_read).map(s => s.id));
+    
+    const sorted = [...props.summaries].sort((a, b) => {
+        const secA = props.sections.find(s => s.id === a.book_section_id);
+        const secB = props.sections.find(s => s.id === b.book_section_id);
+        const orderA = secA ? (secA.order ?? secA.id) : 0;
+        const orderB = secB ? (secB.order ?? secB.id) : 0;
+        return orderB - orderA;
+    });
+
+    const readSummary = sorted.find(s => s.book_section_id && readSectionIds.has(s.book_section_id));
+    return readSummary || sorted[0] || null;
+});
+
+const handleContinueReading = () => {
+    if (lastReadSummary.value) {
+        const secId = lastReadSummary.value.book_section_id || '';
+        router.visit(`/books/${props.book.id}/summaries/${lastReadSummary.value.id}?from_section=${secId}`);
+    } else {
+        router.visit(`/books/${props.book.id}/summaries`);
+    }
+};
 
 const toggleTheme = () => {
     if (document.documentElement.classList.contains('dark')) {
@@ -556,6 +652,18 @@ const deleteBook = () => {
 
                             <!-- Standalone reader & summaries buttons -->
                             <div class="flex flex-wrap items-center gap-2.5">
+                                <button
+                                    v-if="hasReadSections"
+                                    @click="handleContinueReading"
+                                    class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-600/20 hover:shadow-teal-600/30 transition-all duration-200 cursor-pointer"
+                                >
+                                    <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Continue Reading
+                                </button>
+
                                 <Link
                                     v-if="props.summaries && props.summaries.length > 0"
                                     :href="'/books/' + props.book.id + '/summaries'"
@@ -701,8 +809,8 @@ const deleteBook = () => {
                     </div>
 
                     <!-- Book Sections / Chapters Table of Contents -->
-                    <div class="order-1 lg:order-2 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
-                        <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="order-1 lg:order-2 w-full py-2">
+                        <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2 px-1">
                             <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
                             </svg>
@@ -713,10 +821,10 @@ const deleteBook = () => {
                             <div
                                 v-for="sec in visibleSections"
                                 :key="sec.id"
-                                class="py-3 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 px-2 rounded-xl transition-all duration-150"
-                                :style="{ paddingLeft: sec.level && sec.level > 1 ? `${(sec.level - 1) * 16}px` : '0px' }"
+                                class="py-3 flex items-center justify-between group hover:bg-slate-100/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-all duration-150"
+                                :style="{ paddingLeft: sec.level && sec.level > 1 ? `${(sec.level - 1) * 14}px` : '4px' }"
                             >
-                                <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
+                                <div class="flex items-center gap-2 flex-1 min-w-0 pr-3">
                                     <!-- Expand / Collapse Toggle -->
                                     <button
                                         v-if="sec.hasChildren"
@@ -740,11 +848,11 @@ const deleteBook = () => {
                                     </div>
 
                                     <span
-                                        @click="sec.hasChildren ? toggleSection(sec.id) : null"
+                                        @click="handleSectionClick(sec)"
                                         @dblclick="openSectionModal(sec)"
-                                        class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium min-w-0 flex-1 cursor-pointer"
+                                        class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium min-w-0 flex-1 cursor-pointer leading-snug"
                                         :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'text-emerald-700 dark:text-emerald-400': sec.is_read }"
-                                        title="Double-click to view section details"
+                                        title="Click to view chat, double-click for details"
                                     >
                                         {{ sec.title }}
                                     </span>
@@ -753,7 +861,7 @@ const deleteBook = () => {
                                     <!-- Summarize Icon Button -->
                                     <button
                                         v-if="props.book.file_type === 'pdf' || props.book.file_type === 'epub'"
-                                        @click="summarizeSection(sec)"
+                                        @click.stop="summarizeSection(sec)"
                                         class="p-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all cursor-pointer shadow-sm hover:scale-105 flex items-center justify-center shrink-0"
                                         title="Summarize Section"
                                     >
@@ -764,7 +872,7 @@ const deleteBook = () => {
 
                                     <!-- Mark as Read Icon Button -->
                                     <button
-                                        @click="toggleSectionRead(sec)"
+                                        @click.stop="toggleSectionRead(sec)"
                                         class="p-1.5 rounded-lg transition-all cursor-pointer shadow-sm hover:scale-105 flex items-center justify-center shrink-0 border"
                                         :class="sec.is_read 
                                             ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20' 

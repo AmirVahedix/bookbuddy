@@ -156,19 +156,21 @@ const handleImageError = (summaryId) => {
             </div>
 
             <!-- Summaries Grid -->
-            <div v-if="filteredSummaries.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div v-if="filteredSummaries.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div
                     v-for="summary in filteredSummaries"
                     :key="summary.id"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm hover:border-violet-300 dark:hover:border-slate-700 transition-all duration-200"
+                    @click="router.visit('/books/' + summary.book_id + '/summaries/' + summary.id)"
+                    class="group relative flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-violet-500/50 dark:hover:border-violet-500/50 hover:shadow-md transition-all duration-200 cursor-pointer"
                 >
                     <div>
                         <!-- Header Details -->
-                        <div class="flex items-start gap-4 mb-4">
+                        <div class="flex items-start gap-3.5 mb-3">
                             <!-- Book Cover Thumbnail / Initials -->
                             <Link
-                                :href="'/books/' + summary.book_id"
-                                class="w-16 h-20 rounded-xl overflow-hidden shadow-sm flex-shrink-0 bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-2 text-center"
+                                :href="'/books/' + summary.book_id + '/summaries/' + summary.id"
+                                @click.stop
+                                class="w-14 h-18 rounded-xl overflow-hidden shadow-sm flex-shrink-0 bg-gradient-to-br from-violet-600 to-indigo-700 relative flex flex-col items-center justify-center p-2 text-center"
                             >
                                 <img
                                     v-if="summary.book_thumbnail_url && !brokenImages[summary.id]"
@@ -183,49 +185,49 @@ const handleImageError = (summaryId) => {
                             </Link>
 
                             <div class="min-w-0 flex-1">
+                                <!-- Section Title as Main Card Title -->
                                 <Link
-                                    :href="'/books/' + summary.book_id"
-                                    class="font-black text-sm text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-1"
+                                    :href="'/books/' + summary.book_id + '/summaries/' + summary.id"
+                                    @click.stop
+                                    class="font-black text-base text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-2 leading-snug"
                                 >
-                                    {{ summary.book_title }}
+                                    {{ summary.section_title || 'Section Summary' }}
                                 </Link>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{{ summary.book_author || 'Unknown Author' }}</p>
-                                
+
+                                <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                                    <span class="font-semibold text-slate-700 dark:text-slate-300">{{ summary.book_title }}</span>
+                                    <span v-if="summary.book_author" class="text-slate-400 dark:text-slate-500"> • {{ summary.book_author }}</span>
+                                </p>
+
                                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                                    <span v-if="summary.section_title" class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/40 dark:border-indigo-800/40 max-w-[200px] truncate">
-                                        {{ summary.section_title }}
-                                    </span>
-                                    <span v-if="summary.target_pages && summary.target_pages.length > 0" class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/40 dark:border-violet-800/40">
+                                    <span v-if="summary.target_pages && summary.target_pages.length > 0" class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 border border-violet-200/40 dark:border-violet-800/40">
                                         {{ formatPages(summary.target_pages) }}
                                     </span>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Summary Excerpt -->
-                        <div class="text-xs text-slate-600 dark:text-slate-300 line-clamp-4 leading-relaxed mb-6 overflow-hidden">
-                            {{ cleanExcerpt(summary.generated_summary) }}
-                        </div>
                     </div>
 
                     <!-- Actions Footer -->
-                    <div class="border-t border-slate-100 dark:border-slate-800 pt-4 flex items-center justify-between mt-auto">
+                    <div class="border-t border-slate-100 dark:border-slate-800/80 pt-3 flex items-center justify-between mt-2">
                         <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                             Generated {{ summary.created_at }}
                         </span>
-                        
+
                         <div class="flex items-center gap-3">
                             <Link
                                 :href="'/books/' + summary.book_id"
-                                class="inline-flex items-center text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                                @click.stop
+                                class="inline-flex items-center text-xs font-semibold text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
                             >
                                 Book Details
                             </Link>
                             <Link
                                 :href="'/books/' + summary.book_id + '/summaries/' + summary.id"
+                                @click.stop
                                 class="inline-flex items-center text-xs font-bold text-violet-600 dark:text-violet-400 group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors"
                             >
-                                Read Full
+                                Open Chat
                                 <svg class="h-3.5 w-3.5 ml-1 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>

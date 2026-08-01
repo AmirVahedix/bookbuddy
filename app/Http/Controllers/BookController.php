@@ -371,8 +371,24 @@ class BookController extends Controller
                 ])->toArray(),
             ]);
 
+        $sections = $book->sections()
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'title' => $s->title,
+                'section_identifier' => $s->section_identifier,
+                'start_page' => $s->start_page,
+                'end_page' => $s->end_page,
+                'level' => $s->level,
+                'order' => $s->order,
+                'is_read' => (bool) $s->is_read,
+            ]);
+
         return Inertia::render('Books/SummaryReader', [
             'book' => $transformedBook,
+            'sections' => $sections,
             'summaries' => $summaries,
             'initialSummaryId' => $summary?->id,
         ]);
@@ -518,6 +534,7 @@ class BookController extends Controller
             abort(404);
         }
 
+        $section->summaries()->update(['book_section_id' => null]);
         $section->delete();
 
         return redirect()->back();
