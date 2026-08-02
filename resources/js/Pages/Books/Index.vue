@@ -1,6 +1,6 @@
 <script setup>
 import { Head, router, Link } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watchEffect } from 'vue';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
 import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
@@ -100,6 +100,37 @@ const colorThemes = [
 const getTheme = (id) => {
     return colorThemes[id % colorThemes.length];
 };
+
+import { extractCoverTheme } from '../../Utils/colorExtractor';
+
+const extractedThemes = ref({});
+
+const getDynamicOverlayBg = (bookId) => {
+    return extractedThemes.value[bookId]?.overlayBgStyle || null;
+};
+
+const getDynamicTextAccent = (bookId) => {
+    return extractedThemes.value[bookId]?.textAccentStyle || null;
+};
+
+const getDynamicProgressGrad = (bookId) => {
+    return extractedThemes.value[bookId]?.progressGradStyle || null;
+};
+
+watchEffect(() => {
+    (props.books || []).forEach((book) => {
+        if (book.thumbnail_url) {
+            extractCoverTheme(book.thumbnail_url).then((theme) => {
+                if (theme) {
+                    extractedThemes.value = {
+                        ...extractedThemes.value,
+                        [book.id]: theme,
+                    };
+                }
+            });
+        }
+    });
+});
 
 const filters = [
     { label: 'All', value: null },
@@ -311,7 +342,10 @@ const deleteBook = () => {
                         </div>
 
                         <!-- Bottom Related Color Overlay (Matching Slider aesthetics) -->
-                        <div :class="['absolute inset-x-0 bottom-0 p-4 pt-14 flex flex-col justify-end border-t border-white/10 backdrop-blur-md pointer-events-none z-10', getTheme(book.id).overlayBg]">
+                        <div
+                            :class="['absolute inset-x-0 bottom-0 p-4 pt-14 flex flex-col justify-end border-t border-white/10 backdrop-blur-md pointer-events-none z-10', !getDynamicOverlayBg(book.id) && getTheme(book.id).overlayBg]"
+                            :style="getDynamicOverlayBg(book.id)"
+                        >
                             <Link :href="'/books/' + book.id" class="pointer-events-auto">
                                 <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-amber-300 transition-colors">
                                     {{ book.title }}
@@ -325,14 +359,17 @@ const deleteBook = () => {
                             <div class="mt-3 pointer-events-auto">
                                 <div class="flex items-center justify-between text-[11px] font-semibold text-white/90 mb-1">
                                     <span class="text-white/70">Page {{ book.current_page }} of {{ book.total_pages }}</span>
-                                    <span :class="getTheme(book.id).textAccent">
+                                    <span
+                                        :class="!getDynamicTextAccent(book.id) && getTheme(book.id).textAccent"
+                                        :style="getDynamicTextAccent(book.id)"
+                                    >
                                         {{ book.total_pages > 0 ? Math.round((book.current_page / book.total_pages) * 100) : 0 }}%
                                     </span>
                                 </div>
                                 <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden border border-white/10">
                                     <div
-                                        :class="['h-full rounded-full bg-gradient-to-r transition-all duration-500', getTheme(book.id).progressGrad]"
-                                        :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%` }"
+                                        :class="['h-full rounded-full bg-gradient-to-r transition-all duration-500', !getDynamicProgressGrad(book.id) && getTheme(book.id).progressGrad]"
+                                        :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%`, ...getDynamicProgressGrad(book.id) }"
                                     ></div>
                                 </div>
                             </div>

@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, watchEffect } from 'vue';
 import HeaderNavigation from '../Components/HeaderNavigation.vue';
 import BottomNavigation from '../Components/BottomNavigation.vue';
 
@@ -84,6 +84,42 @@ const colorThemes = [
 const getTheme = (id) => {
     return colorThemes[id % colorThemes.length];
 };
+
+import { extractCoverTheme } from '../Utils/colorExtractor';
+
+const extractedThemes = ref({});
+
+const getDynamicOverlayBg = (bookId) => {
+    return extractedThemes.value[bookId]?.overlayBgStyle || null;
+};
+
+const getDynamicTextAccent = (bookId) => {
+    return extractedThemes.value[bookId]?.textAccentStyle || null;
+};
+
+const getDynamicProgressGrad = (bookId) => {
+    return extractedThemes.value[bookId]?.progressGradStyle || null;
+};
+
+watchEffect(() => {
+    const allBooks = [
+        ...(props.currentlyReading || []),
+        ...(props.doneBooks || []),
+    ];
+
+    allBooks.forEach((book) => {
+        if (book.thumbnail_url) {
+            extractCoverTheme(book.thumbnail_url).then((theme) => {
+                if (theme) {
+                    extractedThemes.value = {
+                        ...extractedThemes.value,
+                        [book.id]: theme,
+                    };
+                }
+            });
+        }
+    });
+});
 
 // Slider refs for scroll controls
 const currentlyReadingSlider = ref(null);
@@ -180,7 +216,10 @@ const scrollSlider = (sliderRef, direction) => {
                                 </div>
 
                                 <!-- Bottom Related Color Block Overlay -->
-                                <div :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', getTheme(book.id).overlayBg]">
+                                <div
+                                    :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', !getDynamicOverlayBg(book.id) && getTheme(book.id).overlayBg]"
+                                    :style="getDynamicOverlayBg(book.id)"
+                                >
                                     <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-amber-300 transition-colors">
                                         {{ book.title }}
                                     </h3>
@@ -191,14 +230,17 @@ const scrollSlider = (sliderRef, direction) => {
                                     <!-- Progress Bar -->
                                     <div class="mt-3">
                                         <div class="flex items-center justify-end text-[11px] font-semibold text-white/90 mb-1">
-                                            <span :class="getTheme(book.id).textAccent">
+                                            <span
+                                                :class="!getDynamicTextAccent(book.id) && getTheme(book.id).textAccent"
+                                                :style="getDynamicTextAccent(book.id)"
+                                            >
                                                 {{ book.total_pages > 0 ? Math.round((book.current_page / book.total_pages) * 100) : 0 }}%
                                             </span>
                                         </div>
                                         <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden border border-white/10">
                                             <div
-                                                :class="['h-full rounded-full bg-gradient-to-r transition-all duration-500', getTheme(book.id).progressGrad]"
-                                                :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%` }"
+                                                :class="['h-full rounded-full bg-gradient-to-r transition-all duration-500', !getDynamicProgressGrad(book.id) && getTheme(book.id).progressGrad]"
+                                                :style="{ width: `${book.total_pages > 0 ? (book.current_page / book.total_pages) * 100 : 0}%`, ...getDynamicProgressGrad(book.id) }"
                                             ></div>
                                         </div>
                                     </div>
@@ -294,7 +336,10 @@ const scrollSlider = (sliderRef, direction) => {
                                 </div>
 
                                 <!-- Bottom Related Color Block Overlay -->
-                                <div :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', getTheme(book.id + 2).overlayBg]">
+                                <div
+                                    :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', !getDynamicOverlayBg(book.id) && getTheme(book.id + 2).overlayBg]"
+                                    :style="getDynamicOverlayBg(book.id)"
+                                >
                                     <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-emerald-300 transition-colors">
                                         {{ book.title }}
                                     </h3>
