@@ -452,16 +452,6 @@ const deleteBook = () => {
             </div>
         </main>
 
-        <!-- Floating Action Button for Mobile (Add Book) -->
-        <Link
-            href="/books/create"
-            class="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
-            aria-label="Add new book"
-        >
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-        </Link>
 
         <!-- Bottom Navigation for Mobile -->
         <BottomNavigation />
