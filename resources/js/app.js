@@ -1,6 +1,7 @@
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import 'katex/dist/katex.min.css';
 
 createInertiaApp({
     title: (title) => title ? `${title} - BookBuddy` : 'BookBuddy',

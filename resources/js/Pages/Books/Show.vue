@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, shallowRef, onMounted, computed, watch, nextTick } from 'vue';
+import { renderMarkdown } from '../../utils/markdown.js';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
 import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
@@ -309,23 +310,7 @@ const deleteSection = (sec) => {
 
 
 
-// Simple Markdown Renderer
-const renderMarkdown = (text) => {
-    if (!text) return '';
-    let html = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    
-    html = html.replace(/^### (.*?)$/gm, '<h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 mt-4 mb-1">$1</h4>');
-    html = html.replace(/^## (.*?)$/gm, '<h3 class="text-base font-extrabold text-slate-900 dark:text-white mt-5 mb-2 border-l-2 border-violet-500 pl-2">$1</h3>');
-    html = html.replace(/^# (.*?)$/gm, '<h2 class="text-lg font-black text-violet-600 dark:text-violet-400 mt-6 mb-3 border-b border-slate-100 dark:border-slate-800 pb-1">$1</h2>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-950 dark:text-white">$1</strong>');
-    html = html.replace(/\*(.*?)\*(?!\*)/g, '<em class="italic text-slate-600 dark:text-slate-400">$1</em>');
-    html = html.replace(/^\- (.*?)$/gm, '<li class="ml-4 list-disc text-slate-700 dark:text-slate-300 my-1">$1</li>');
-    
-    return html;
-};
+
 
 // Collapsed state of summaries
 const expandedSummaries = ref({});

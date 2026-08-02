@@ -1,19 +1,66 @@
+import katex from 'katex';
+
 /**
- * Simple Markdown Renderer for book summaries
+ * Markdown & Math Formula Renderer for BookBuddy
  */
 export const renderMarkdown = (text) => {
     if (!text) return '';
-    
-    // Escape HTML first
-    let escaped = text
+
+    const codeTokens = [];
+    const mathTokens = [];
+
+    let processed = text;
+
+    // 1. Protect Code Blocks first (so math tokens inside code blocks are ignored)
+    processed = processed.replace(/```(\w*)\n?([\s\S]*?)\n?```/g, (match, lang, code) => {
+        const index = codeTokens.length;
+        // Escape HTML inside code block
+        const escapedCode = code
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        codeTokens.push({ lang, code: escapedCode });
+        return `___CODE_BLOCK_${index}___`;
+    });
+
+    // 2. Protect Block / Display Math ($$...$$ and \[...\])
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
+        const index = mathTokens.length;
+        mathTokens.push({ tex: tex.trim(), display: true });
+        return `___MATH_BLOCK_${index}___`;
+    });
+
+    processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match, tex) => {
+        const index = mathTokens.length;
+        mathTokens.push({ tex: tex.trim(), display: true });
+        return `___MATH_BLOCK_${index}___`;
+    });
+
+    // 3. Protect Inline Math (\(...html\) and $...$)
+    processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (match, tex) => {
+        const index = mathTokens.length;
+        mathTokens.push({ tex: tex.trim(), display: false });
+        return `___MATH_INLINE_${index}___`;
+    });
+
+    processed = processed.replace(/\$([^\$\n]+?)\$/g, (match, tex) => {
+        // Simple check to avoid replacing solitary currency amounts like $100 if it's strictly numerical without math operators/variables
+        const trimmed = tex.trim();
+        if (/^\d+(\.\d+)?$/.test(trimmed)) {
+            return match;
+        }
+        const index = mathTokens.length;
+        mathTokens.push({ tex: trimmed, display: false });
+        return `___MATH_INLINE_${index}___`;
+    });
+
+    // 4. Escape remaining HTML
+    let escaped = processed
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
-    // Code blocks replacement
-    escaped = escaped.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre class="bg-slate-900 dark:bg-slate-950 text-slate-150 p-4 rounded-xl font-mono text-xs overflow-auto my-4 border border-slate-800/80"><code>$2</code></pre>');
-    
-    // Split into lines to process lists, tables, headers, and paragraphs
+    // 5. Line-by-line Markdown parsing
     const lines = escaped.split('\n');
     let htmlResult = [];
     let inList = false;
@@ -31,11 +78,9 @@ export const renderMarkdown = (text) => {
 
     const closeTable = () => {
         if (inTable) {
-            // Process the table rows
             let tableHtml = '<div class="overflow-x-auto my-6 border border-slate-200 dark:border-slate-800 rounded-xl"><table class="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm">';
             let hasHeader = false;
             
-            // Check if second row is a separator line like |---|---|
             let separatorIndex = -1;
             if (tableRows.length > 1) {
                 const secondRow = tableRows[1].trim();
@@ -46,10 +91,9 @@ export const renderMarkdown = (text) => {
             }
 
             for (let i = 0; i < tableRows.length; i++) {
-                if (i === separatorIndex) continue; // skip separator row
+                if (i === separatorIndex) continue;
                 
                 const rowStr = tableRows[i].trim();
-                // strip leading and trailing pipes
                 const cleanRow = rowStr.replace(/^\|/, '').replace(/\|$/, '');
                 const cells = cleanRow.split('|').map(c => c.trim());
 
@@ -81,15 +125,23 @@ export const renderMarkdown = (text) => {
         const line = lines[i];
         const trimmed = line.trim();
 
-        // 1. Preformatted code blocks that were already replaced in escaped
-        if (trimmed.startsWith('<pre')) {
+        // Check for Code Block Token
+        if (trimmed.startsWith('___CODE_BLOCK_')) {
             closeList();
             closeTable();
-            htmlResult.push(line);
+            htmlResult.push(trimmed);
             continue;
         }
 
-        // 2. Headings
+        // Check for Standalone Block Math Token
+        if (/^___MATH_BLOCK_\d+___$/.test(trimmed)) {
+            closeList();
+            closeTable();
+            htmlResult.push(`<div class="math-display my-4 text-center overflow-x-auto py-2 text-slate-900 dark:text-slate-100 font-sans">${trimmed}</div>`);
+            continue;
+        }
+
+        // Headings
         if (trimmed.startsWith('#')) {
             closeList();
             closeTable();
@@ -103,7 +155,7 @@ export const renderMarkdown = (text) => {
             continue;
         }
 
-        // 3. Blockquotes
+        // Blockquotes
         if (trimmed.startsWith('&gt;')) {
             closeList();
             closeTable();
@@ -112,7 +164,7 @@ export const renderMarkdown = (text) => {
             continue;
         }
 
-        // 4. Tables detection
+        // Tables detection
         if (trimmed.startsWith('|')) {
             closeList();
             inTable = true;
@@ -122,8 +174,8 @@ export const renderMarkdown = (text) => {
             closeTable();
         }
 
-        // 5. Lists (Unordered and Ordered)
-        const ulMatch = trimmed.match(/^^[\-\*]\s+(.*)$/);
+        // Lists (Unordered and Ordered)
+        const ulMatch = trimmed.match(/^[\-\*]\s+(.*)$/);
         const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
 
         if (ulMatch) {
@@ -150,18 +202,17 @@ export const renderMarkdown = (text) => {
             closeList();
         }
 
-        // 6. Blank lines
+        // Blank lines
         if (trimmed === '') {
             continue;
         }
 
-        // 7. Regular paragraph
+        // Regular paragraph
         closeList();
         closeTable();
         htmlResult.push(`<p class="my-4 text-slate-750 dark:text-slate-300 leading-relaxed">${line}</p>`);
     }
 
-    // Close any unclosed list/table at the end
     closeList();
     closeTable();
 
@@ -172,6 +223,28 @@ export const renderMarkdown = (text) => {
         .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-950 dark:text-white">$1</strong>')
         .replace(/\*(.*?)\*(?!\*)/g, '<em class="italic text-slate-600 dark:text-slate-400">$1</em>')
         .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 text-pink-600 dark:text-pink-400 rounded text-xs font-mono">$1</code>');
+
+    // 6. Restore Math Tokens (Render with KaTeX)
+    mathTokens.forEach((token, index) => {
+        let renderedHtml = token.tex;
+        try {
+            renderedHtml = katex.renderToString(token.tex, {
+                displayMode: token.display,
+                throwOnError: false,
+            });
+        } catch (e) {
+            console.error('KaTeX rendering error:', e);
+        }
+
+        const placeholder = token.display ? `___MATH_BLOCK_${index}___` : `___MATH_INLINE_${index}___`;
+        finalHtml = finalHtml.replaceAll(placeholder, renderedHtml);
+    });
+
+    // 7. Restore Code Block Tokens
+    codeTokens.forEach((token, index) => {
+        const codeBlockHtml = `<pre class="bg-slate-900 dark:bg-slate-950 text-slate-150 p-4 rounded-xl font-mono text-xs overflow-auto my-4 border border-slate-800/80"><code>${token.code}</code></pre>`;
+        finalHtml = finalHtml.replace(`___CODE_BLOCK_${index}___`, codeBlockHtml);
+    });
 
     return finalHtml;
 };
