@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, watchEffect } from 'vue';
+import { Plus } from '@lucide/vue';
 import HeaderNavigation from '../Components/HeaderNavigation.vue';
 import BottomNavigation from '../Components/BottomNavigation.vue';
 
@@ -255,6 +256,35 @@ const scrollSlider = (sliderRef, direction) => {
                     <p class="text-sm text-slate-400">No books currently being read.</p>
                     <Link href="/books" class="mt-3 inline-block text-xs font-semibold text-violet-400 hover:text-violet-300">
                         Browse catalog →
+                    </Link>
+                </div>
+
+                <!-- Create New Book Card Under Currently Reading -->
+                <div class="mt-6">
+                    <Link
+                        href="/books/create"
+                        class="group relative flex items-center justify-between p-5 sm:p-6 rounded-3xl border border-violet-500/20 dark:border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-purple-500/10 hover:from-violet-500/20 hover:via-indigo-500/20 hover:to-purple-500/20 shadow-lg shadow-violet-500/5 hover:shadow-violet-500/15 backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden"
+                    >
+                        <!-- Background glow effect -->
+                        <div class="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl group-hover:bg-violet-600/30 transition-all duration-500 pointer-events-none"></div>
+
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="h-12 w-12 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-violet-600/30 group-hover:scale-110 transition-transform duration-300">
+                                <Plus class="h-6 w-6 stroke-[2.5]" />
+                            </div>
+                            <div>
+                                <h4 class="text-base font-extrabold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
+                                    Add a New Book
+                                </h4>
+                                <span class="text-xs font-semibold text-violet-600/80 dark:text-violet-400/90">
+                                    PDF or EPUB document
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="relative z-10 h-10 w-10 rounded-2xl bg-white dark:bg-slate-900 border border-violet-500/20 dark:border-violet-400/30 flex items-center justify-center text-violet-600 dark:text-violet-400 shadow-sm group-hover:bg-violet-600 group-hover:text-white group-hover:border-transparent transition-all duration-300">
+                            <Plus class="h-5 w-5 stroke-[2.5]" />
+                        </div>
                     </Link>
                 </div>
             </section>

@@ -1,6 +1,7 @@
 <script setup>
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, onMounted, watchEffect } from 'vue';
+import { Plus } from '@lucide/vue';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
 import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
@@ -239,15 +240,13 @@ const deleteBook = () => {
                     <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">My Library</h1>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Manage your book collection, reading progress, and documents.</p>
                 </div>
-                <div>
+                <div class="flex items-center">
                     <Link
                         href="/books/create"
-                        class="hidden sm:inline-flex items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200 cursor-pointer"
+                        class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-400 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 transition-all duration-200 active:scale-[0.98] cursor-pointer w-full sm:w-auto"
                     >
-                        <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Book
+                        <Plus class="h-4 w-4 mr-2" />
+                        Create Book
                     </Link>
                 </div>
             </div>
