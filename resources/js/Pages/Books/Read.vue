@@ -1088,7 +1088,7 @@ const submitSummaryRequest = () => {
         </footer>
 
         <!-- Floating Page Indicator (Mobile Only) -->
-        <div class="md:hidden fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2 pointer-events-none">
+        <div class="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-40 flex flex-col items-end gap-2 pointer-events-none">
             <!-- Subtle touch target region to reveal when hidden -->
             <transition
                 enter-active-class="transition duration-300 ease-out"

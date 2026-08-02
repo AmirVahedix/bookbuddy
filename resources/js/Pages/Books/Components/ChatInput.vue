@@ -1,6 +1,6 @@
 <template>
     <div
-        class="fixed bottom-4 left-4 right-4 z-40 flex bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800/80 rounded-full py-2.5 px-5 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.08),0_4px_12px_-5px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300
+        class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 flex bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800/80 rounded-full py-2.5 px-5 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.08),0_4px_12px_-5px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300
                md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md lg:max-w-lg md:right-auto md:bottom-6 md:py-3 md:px-6"
     >
         <form @submit.prevent="emit('submit')" class="flex-1 flex gap-3 items-center justify-between">

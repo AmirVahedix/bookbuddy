@@ -104,7 +104,7 @@ const scrollSlider = (sliderRef, direction) => {
         <HeaderNavigation />
 
         <!-- Main Content -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-[calc(1.5rem+env(safe-area-inset-top))] sm:pt-6 pb-28">
 
             <!-- SECTION 1: Currently Reading Slider -->
             <section class="mb-12">
@@ -326,7 +326,7 @@ const scrollSlider = (sliderRef, direction) => {
         <!-- Floating Action Button for Mobile -->
         <Link
             href="/books/create"
-            class="sm:hidden fixed bottom-20 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+            class="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-600/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
             aria-label="Add new book"
         >
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">

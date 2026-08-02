@@ -106,7 +106,7 @@ const handleImageError = (summaryId) => {
         <HeaderNavigation />
 
         <!-- Page Content -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-8">
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-[calc(2rem+env(safe-area-inset-top))] sm:pt-8 pb-24 sm:pb-8">
             <!-- Page Header -->
             <div class="mb-8">
                 <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Chats</h1>

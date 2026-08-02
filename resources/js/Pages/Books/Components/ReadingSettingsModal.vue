@@ -25,7 +25,7 @@
         >
             <div
                 v-if="isOpen"
-                class="fixed bottom-0 inset-x-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 rounded-t-3xl p-6 shadow-2xl max-w-lg mx-auto sm:mb-6 sm:rounded-3xl sm:border"
+                class="fixed bottom-0 inset-x-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl max-w-lg mx-auto sm:mb-6 sm:rounded-3xl sm:border"
             >
                 <!-- Drag handle for sheet feel -->
                 <div class="w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-5 sm:hidden"></div>

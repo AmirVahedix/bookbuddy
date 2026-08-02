@@ -41,7 +41,7 @@ const submit = () => {
 <template>
     <Head title="Sign In" />
 
-    <div class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 px-6 py-12 transition-colors duration-200">
+    <div class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 px-6 pt-[calc(3rem+env(safe-area-inset-top))] sm:pt-12 pb-12 transition-colors duration-200">
         <!-- Floating Theme Toggle Button -->
         <div class="absolute top-[calc(1.5rem+env(safe-area-inset-top))] right-6">
             <button

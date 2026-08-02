@@ -189,7 +189,7 @@ const submit = () => {
         <HeaderNavigation />
 
         <!-- Page Content -->
-        <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-24 sm:pb-10">
+        <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-[calc(2.5rem+env(safe-area-inset-top))] sm:pt-10 pb-24 sm:pb-10">
             <!-- Back Navigation -->
             <div class="mb-6">
                 <Link
