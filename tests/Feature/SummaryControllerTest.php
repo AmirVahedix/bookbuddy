@@ -26,7 +26,7 @@ class SummaryControllerTest extends TestCase
     public function test_authenticated_user_can_access_summaries_list(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create(['title' => 'Design Patterns']);
+        $book = Book::factory()->create(['user_id' => $user->id, 'title' => 'Design Patterns']);
         $summary = Summary::factory()->create([
             'book_id' => $book->id,
             'generated_summary' => 'This is a summary of design patterns.',
@@ -54,8 +54,8 @@ class SummaryControllerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $book1 = Book::factory()->create(['title' => 'Book One']);
-        $book2 = Book::factory()->create(['title' => 'Book Two']);
+        $book1 = Book::factory()->create(['user_id' => $user->id, 'title' => 'Book One']);
+        $book2 = Book::factory()->create(['user_id' => $user->id, 'title' => 'Book Two']);
 
         $summary1 = Summary::factory()->create([
             'book_id' => $book1->id,

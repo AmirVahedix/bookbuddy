@@ -33,7 +33,7 @@ class SummaryChatTest extends TestCase
     public function test_authenticated_user_can_send_chat_message(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $summary = Summary::factory()->create([
             'book_id' => $book->id,
             'target_pages' => [1, 2, 3],
@@ -70,7 +70,7 @@ class SummaryChatTest extends TestCase
     public function test_summary_reader_loads_chat_history(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $summary = Summary::factory()->create(['book_id' => $book->id]);
 
         $chatMessage = SummaryChatMessage::factory()->create([
@@ -98,7 +98,8 @@ class SummaryChatTest extends TestCase
     public function test_user_can_clear_chat_history(): void
     {
         $user = User::factory()->create();
-        $summary = Summary::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
+        $summary = Summary::factory()->create(['book_id' => $book->id]);
 
         SummaryChatMessage::factory()->count(3)->create([
             'summary_id' => $summary->id,

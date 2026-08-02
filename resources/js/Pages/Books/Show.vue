@@ -308,9 +308,40 @@ const deleteSection = (sec) => {
     }
 };
 
+// Share Modal State
+const isShareModalOpen = ref(false);
+const shareForm = useForm({
+    email: '',
+});
 
+const openShareModal = () => {
+    isShareModalOpen.value = true;
+    shareForm.reset();
+    shareForm.clearErrors();
+};
 
+const closeShareModal = () => {
+    isShareModalOpen.value = false;
+    shareForm.reset();
+    shareForm.clearErrors();
+};
 
+const submitShare = () => {
+    shareForm.post(`/books/${props.book.id}/share`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            shareForm.reset();
+        },
+    });
+};
+
+const revokeAccess = (userId) => {
+    if (confirm('Are you sure you want to revoke access for this user?')) {
+        router.delete(`/books/${props.book.id}/share/${userId}`, {
+            preserveScroll: true,
+        });
+    }
+};
 
 // Collapsed state of summaries
 const expandedSummaries = ref({});
@@ -559,8 +590,8 @@ const deleteBook = () => {
                             <span class="text-xl font-extrabold text-white leading-tight tracking-wider">{{ getInitials(props.book.title) }}</span>
                         </div>
 
-                        <!-- Floating Action Icon Buttons (Edit & Delete) -->
-                        <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-20">
+                        <!-- Floating Action Icon Buttons (Edit, Share & Delete for Creator) -->
+                        <div v-if="props.book.is_creator" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-20">
                             <button
                                 type="button"
                                 @click="router.visit('/books/' + props.book.id + '/edit')"
@@ -569,6 +600,16 @@ const deleteBook = () => {
                             >
                                 <svg class="h-3.5 w-3.5 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button
+                                type="button"
+                                @click="openShareModal"
+                                class="w-8 h-8 min-w-[32px] min-h-[32px] max-w-[32px] max-h-[32px] p-0 m-0 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white backdrop-blur-md border border-indigo-400/30 transition-all cursor-pointer shadow-md hover:scale-105 inline-flex items-center justify-center shrink-0 box-border leading-none appearance-none"
+                                title="Share Book Access"
+                            >
+                                <svg class="h-3.5 w-3.5 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                                 </svg>
                             </button>
                             <button
@@ -614,7 +655,12 @@ const deleteBook = () => {
                             <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
                                 {{ props.book.title }}
                             </h1>
-                            <p class="text-sm sm:text-base text-slate-500 mt-1 font-medium">{{ props.book.author || 'Unknown Author' }}</p>
+                            <p class="text-sm sm:text-base text-slate-500 mt-1 font-medium">
+                                {{ props.book.author || 'Unknown Author' }}
+                                <span class="inline-flex items-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold ml-2.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-md border border-indigo-200/40 dark:border-indigo-800/40">
+                                    {{ props.book.is_creator ? 'Created by You' : 'Shared by ' + props.book.creator_name }}
+                                </span>
+                            </p>
                         </div>
 
                         <!-- Progress form & actions -->
@@ -1110,6 +1156,92 @@ const deleteBook = () => {
                             Close
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+    <!-- Share Book Access Modal -->
+    <transition name="fade">
+        <div v-if="isShareModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <h3 class="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                        <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                        Share Book Access
+                    </h3>
+                    <button @click="closeShareModal" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="py-4 space-y-4">
+                    <p class="text-xs text-slate-500 font-medium leading-relaxed">
+                        Grant access to this book so others can view its details, read summaries, and visit chats.
+                    </p>
+
+                    <!-- Add User Form -->
+                    <form @submit.prevent="submitShare" class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">User Email</label>
+                            <div class="flex gap-2">
+                                <input
+                                    type="email"
+                                    v-model="shareForm.email"
+                                    placeholder="Enter user email..."
+                                    required
+                                    class="flex-1 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                />
+                                <button
+                                    type="submit"
+                                    :disabled="shareForm.processing"
+                                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                    {{ shareForm.processing ? 'Sharing...' : 'Share' }}
+                                </button>
+                            </div>
+                            <span v-if="shareForm.errors.email" class="text-xs text-rose-500 mt-1 block font-medium">
+                                {{ shareForm.errors.email }}
+                            </span>
+                        </div>
+                    </form>
+
+                    <!-- Shared Users List -->
+                    <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Users with Access</label>
+                        <div v-if="props.book.shared_users && props.book.shared_users.length > 0" class="space-y-2 max-h-48 overflow-y-auto">
+                            <div
+                                v-for="user in props.book.shared_users"
+                                :key="user.id"
+                                class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"
+                            >
+                                <div>
+                                    <p class="text-xs font-bold text-slate-800 dark:text-slate-200">{{ user.name }}</p>
+                                    <p class="text-[10px] text-slate-400">{{ user.email }}</p>
+                                </div>
+                                <button
+                                    @click="revokeAccess(user.id)"
+                                    class="px-2.5 py-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer"
+                                >
+                                    Revoke
+                                </button>
+                            </div>
+                        </div>
+                        <p v-else class="text-xs text-slate-400 italic">No users have been given access yet.</p>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                    <button
+                        @click="closeShareModal"
+                        class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-extrabold transition-all cursor-pointer"
+                    >
+                        Done
+                    </button>
                 </div>
             </div>
         </div>

@@ -21,10 +21,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Setup a default User
-        User::factory()->create([
+        // 1. Setup default User and Secondary User
+        $user = User::factory()->create([
             'name' => 'Default User',
             'email' => 'test@example.com',
+        ]);
+
+        $secondaryUser = User::factory()->create([
+            'name' => 'Jane Reader',
+            'email' => 'jane@example.com',
         ]);
 
         // Create sample tags
@@ -37,6 +42,7 @@ class DatabaseSeeder extends Seeder
         // 2. Attach a couple of sample books
         // PDF Book
         $pdfBook = Book::factory()->create([
+            'user_id' => $user->id,
             'title' => 'Designing Data-Intensive Applications',
             'author' => 'Martin Kleppmann',
             'file_type' => BookFileType::Pdf,
@@ -44,6 +50,9 @@ class DatabaseSeeder extends Seeder
             'total_pages' => 611,
             'current_page' => 45,
         ]);
+
+        // Share PDF book with secondary user
+        $pdfBook->sharedUsers()->attach($secondaryUser->id);
 
         $pdfBook->tags()->attach([$tagProgramming->id, $tagDatabaseSystems->id, $tagArchitecture->id]);
 
@@ -58,6 +67,7 @@ class DatabaseSeeder extends Seeder
 
         // EPUB Book
         $epubBook = Book::factory()->create([
+            'user_id' => $user->id,
             'title' => 'Structure and Interpretation of Computer Programs',
             'author' => 'Harold Abelson, Gerald Jay Sussman, Julie Sussman',
             'file_type' => BookFileType::Epub,

@@ -24,7 +24,8 @@ class SummaryController extends Controller
     {
         $bookId = $request->query('book_id');
 
-        $query = Summary::with(['book.media', 'bookSection']);
+        $query = Summary::whereHas('book', fn ($q) => $q->accessibleBy($request->user()))
+            ->with(['book.media', 'bookSection']);
 
         if ($bookId) {
             $query->where('book_id', $bookId);
@@ -46,7 +47,9 @@ class SummaryController extends Controller
                 'created_at' => $s->created_at->diffForHumans(),
             ]);
 
-        $books = Book::orderBy('title')->get(['id', 'title', 'author']);
+        $books = Book::accessibleBy($request->user())
+            ->orderBy('title')
+            ->get(['id', 'title', 'author']);
 
         return Inertia::render('Summaries/Index', [
             'summaries' => $summaries,
@@ -64,6 +67,8 @@ class SummaryController extends Controller
         EpubExtractorService $epubExtractorService,
         PdfImageExtractorService $pdfImageExtractorService
     ): StreamedResponse {
+        $this->authorize('view', $summary->book);
+
         return response()->stream(function () use ($summary, $openAiService, $epubExtractorService, $pdfImageExtractorService) {
             while (ob_get_level() > 0) {
                 ob_end_flush();
@@ -159,6 +164,7 @@ class SummaryController extends Controller
         EpubExtractorService $epubExtractorService,
         PdfImageExtractorService $pdfImageExtractorService
     ): RedirectResponse {
+        $this->authorize('view', $summary->book);
 
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
@@ -287,6 +293,8 @@ class SummaryController extends Controller
      */
     public function clearChat(Summary $summary): RedirectResponse
     {
+        $this->authorize('view', $summary->book);
+
         $summary->chatMessages()->delete();
 
         return redirect()->back();

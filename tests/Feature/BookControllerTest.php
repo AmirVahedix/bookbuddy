@@ -29,14 +29,17 @@ class BookControllerTest extends TestCase
 
         // Create books with different status
         $currentlyReading1 = Book::factory()->create([
+            'user_id' => $user->id,
             'reading_status' => BookReadingStatus::CurrentlyReading,
             'updated_at' => now()->subDay(),
         ]);
         $currentlyReading2 = Book::factory()->create([
+            'user_id' => $user->id,
             'reading_status' => BookReadingStatus::CurrentlyReading,
             'updated_at' => now(), // newer
         ]);
         $doneBook = Book::factory()->create([
+            'user_id' => $user->id,
             'reading_status' => BookReadingStatus::Done,
         ]);
 
@@ -56,7 +59,7 @@ class BookControllerTest extends TestCase
     public function test_books_index_lists_all_books(): void
     {
         $user = User::factory()->create();
-        Book::factory()->count(3)->create();
+        Book::factory()->count(3)->create(['user_id' => $user->id]);
 
         $response = $this->actingAs($user)->get('/books');
 
@@ -73,9 +76,11 @@ class BookControllerTest extends TestCase
         $user = User::factory()->create();
 
         Book::factory()->count(2)->create([
+            'user_id' => $user->id,
             'reading_status' => BookReadingStatus::CurrentlyReading,
         ]);
         $doneBook = Book::factory()->create([
+            'user_id' => $user->id,
             'reading_status' => BookReadingStatus::Done,
         ]);
 
@@ -123,6 +128,7 @@ class BookControllerTest extends TestCase
             'title' => 'Test Book',
             'author' => 'Test Author',
             'file_type' => 'pdf',
+            'reading_status' => 'currently_reading',
         ]);
 
         $book = Book::firstWhere('title', 'Test Book');
@@ -287,10 +293,10 @@ class BookControllerTest extends TestCase
         $tag1 = Tag::factory()->create(['name' => 'Fiction']);
         $tag2 = Tag::factory()->create(['name' => 'Science']);
 
-        $book1 = Book::factory()->create();
+        $book1 = Book::factory()->create(['user_id' => $user->id]);
         $book1->tags()->attach($tag1->id);
 
-        $book2 = Book::factory()->create();
+        $book2 = Book::factory()->create(['user_id' => $user->id]);
         $book2->tags()->attach($tag2->id);
 
         $response = $this->actingAs($user)->get('/books?tag=Fiction');
@@ -354,7 +360,7 @@ class BookControllerTest extends TestCase
     public function test_authenticated_user_can_access_book_show_page(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         $response = $this->actingAs($user)->get("/books/{$book->id}");
 
@@ -370,7 +376,7 @@ class BookControllerTest extends TestCase
     public function test_authenticated_user_can_access_standalone_reader_page(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         $response = $this->actingAs($user)->get("/books/{$book->id}/read");
 
@@ -385,6 +391,7 @@ class BookControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $book = Book::factory()->create([
+            'user_id' => $user->id,
             'total_pages' => 200,
             'current_page' => 10,
             'reading_status' => BookReadingStatus::CurrentlyReading,
@@ -407,7 +414,7 @@ class BookControllerTest extends TestCase
     {
         config(['services.openai.api_key' => '']);
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         $response = $this->actingAs($user)->post("/books/{$book->id}/summarize", [
             'start_page' => 1,
@@ -426,7 +433,7 @@ class BookControllerTest extends TestCase
     {
         config(['services.openai.api_key' => '']);
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         // Create some sections
         $section1 = BookSection::factory()->create([
@@ -473,7 +480,7 @@ class BookControllerTest extends TestCase
     {
         config(['services.openai.api_key' => '']);
         $user = User::factory()->create();
-        $book = Book::factory()->create(['file_type' => 'pdf']);
+        $book = Book::factory()->create(['user_id' => $user->id, 'file_type' => 'pdf']);
 
         // Parent Chapter covering pages 1 to 50 (Level 1)
         $parentSection = BookSection::factory()->create([
@@ -534,6 +541,7 @@ class BookControllerTest extends TestCase
         $file = $this->createMockEpubFile('book.epub', $htmlFiles);
 
         $book = Book::create([
+            'user_id' => $user->id,
             'title' => 'Test EPUB Book',
             'author' => 'Test Author',
             'file_type' => 'epub',
@@ -569,7 +577,7 @@ class BookControllerTest extends TestCase
     public function test_authenticated_user_can_access_summaries_reader_page(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $summary = Summary::create([
             'book_id' => $book->id,
             'prompt_used' => 'Test prompt',
@@ -611,7 +619,7 @@ class BookControllerTest extends TestCase
     {
         Storage::fake('public');
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         // Add some media file to ensure it's deleted
         $file = UploadedFile::fake()->create('book.pdf', 100, 'application/pdf');
@@ -644,7 +652,7 @@ class BookControllerTest extends TestCase
     public function test_user_can_toggle_section_read_status(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $section = BookSection::factory()->create([
             'book_id' => $book->id,
             'is_read' => false,
@@ -666,7 +674,7 @@ class BookControllerTest extends TestCase
     public function test_book_show_includes_is_read_in_sections_prop(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $section = BookSection::factory()->create([
             'book_id' => $book->id,
             'is_read' => true,
@@ -686,7 +694,7 @@ class BookControllerTest extends TestCase
     public function test_marking_parent_section_as_read_marks_all_its_children_as_read(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         $parent = BookSection::factory()->create([
             'book_id' => $book->id,
@@ -730,6 +738,7 @@ class BookControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $book = Book::factory()->create([
+            'user_id' => $user->id,
             'total_pages' => 100,
             'current_page' => 0,
             'reading_status' => BookReadingStatus::PlannedForFuture,
@@ -772,7 +781,7 @@ class BookControllerTest extends TestCase
     public function test_user_can_delete_book_section(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $section = BookSection::factory()->create([
             'book_id' => $book->id,
         ]);
@@ -795,7 +804,7 @@ class BookControllerTest extends TestCase
     public function test_authenticated_user_can_access_edit_book_page(): void
     {
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
         $tag = Tag::factory()->create(['name' => 'Fiction']);
         $book->tags()->attach($tag);
 
@@ -815,6 +824,7 @@ class BookControllerTest extends TestCase
         Storage::fake('public');
         $user = User::factory()->create();
         $book = Book::factory()->create([
+            'user_id' => $user->id,
             'title' => 'Original Title',
             'author' => 'Original Author',
         ]);
@@ -849,7 +859,7 @@ class BookControllerTest extends TestCase
     {
         Storage::fake('public');
         $user = User::factory()->create();
-        $book = Book::factory()->create();
+        $book = Book::factory()->create(['user_id' => $user->id]);
 
         $thumbnail = UploadedFile::fake()->image('cover.jpg', 600, 800);
         $book->addMedia($thumbnail)->toMediaCollection('thumbnail');

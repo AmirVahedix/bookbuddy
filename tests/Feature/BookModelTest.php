@@ -41,7 +41,7 @@ class BookModelTest extends TestCase
         // Verify model default attribute
         $newBook = new Book;
         $this->assertEquals(0, $newBook->current_page);
-        $this->assertEquals(BookReadingStatus::PlannedForFuture, $newBook->reading_status);
+        $this->assertEquals(BookReadingStatus::CurrentlyReading, $newBook->reading_status);
 
         // Verify database default when saving without specifying current_page or reading_status
         $savedBook = Book::create([
@@ -49,7 +49,7 @@ class BookModelTest extends TestCase
             'file_type' => BookFileType::Pdf,
         ]);
         $this->assertEquals(0, $savedBook->current_page);
-        $this->assertEquals(BookReadingStatus::PlannedForFuture, $savedBook->reading_status);
+        $this->assertEquals(BookReadingStatus::CurrentlyReading, $savedBook->reading_status);
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Models\Book;
 use App\Models\BookSection;
 use App\Models\Summary;
 use App\Models\Tag;
+use App\Models\User;
 use App\Services\EpubExtractorService;
 use App\Services\EpubParserService;
 use App\Services\OpenAiService;
@@ -33,19 +34,26 @@ class BookController extends Controller
     /**
      * Display the dashboard with currently reading books and stats.
      */
-    public function dashboard(): Response
+    public function dashboard(Request $request): Response
     {
-        $currentlyReading = Book::with('tags')->where('reading_status', BookReadingStatus::CurrentlyReading)
+        $user = $request->user();
+
+        $currentlyReading = Book::accessibleBy($user)
+            ->with(['tags', 'user', 'sharedUsers'])
+            ->where('reading_status', BookReadingStatus::CurrentlyReading)
             ->orderByDesc('updated_at')
             ->get()
             ->map(fn (Book $book) => $this->transformBook($book));
 
-        $doneBooks = Book::with('tags')->where('reading_status', BookReadingStatus::Done)
+        $doneBooks = Book::accessibleBy($user)
+            ->with(['tags', 'user', 'sharedUsers'])
+            ->where('reading_status', BookReadingStatus::Done)
             ->orderByDesc('updated_at')
             ->get()
             ->map(fn (Book $book) => $this->transformBook($book));
 
-        $latestSummaries = Summary::with(['book.media', 'bookSection'])
+        $latestSummaries = Summary::whereHas('book', fn ($q) => $q->accessibleBy($user))
+            ->with(['book.media', 'bookSection'])
             ->orderByDesc('created_at')
             ->take(8)
             ->get()
@@ -63,10 +71,11 @@ class BookController extends Controller
                 'created_at' => $s->created_at->diffForHumans(),
             ]);
 
-        $totalBooks = Book::count();
-        $activeSummaries = Summary::count();
-        $pagesRead = Book::sum('current_page');
-        $totalPages = Book::sum('total_pages');
+        $accessibleQuery = Book::accessibleBy($user);
+        $totalBooks = (clone $accessibleQuery)->count();
+        $activeSummaries = Summary::whereHas('book', fn ($q) => $q->accessibleBy($user))->count();
+        $pagesRead = (clone $accessibleQuery)->sum('current_page');
+        $totalPages = (clone $accessibleQuery)->sum('total_pages');
 
         $completionRate = $totalPages > 0
             ? (int) round(($pagesRead / $totalPages) * 100)
@@ -93,7 +102,7 @@ class BookController extends Controller
         $status = $request->query('status');
         $tag = $request->query('tag');
 
-        $query = Book::with('tags');
+        $query = Book::accessibleBy($request->user())->with(['tags', 'user', 'sharedUsers']);
 
         if ($status && BookReadingStatus::tryFrom($status)) {
             $query->where('reading_status', $status);
@@ -122,8 +131,19 @@ class BookController extends Controller
      */
     protected function transformBook(Book $book): array
     {
+        $book->loadMissing(['user', 'sharedUsers', 'tags']);
+        $currentUser = request()->user();
+
         return [
             'id' => $book->id,
+            'user_id' => $book->user_id,
+            'creator_name' => $book->user?->name ?? 'Unknown',
+            'is_creator' => $currentUser ? $book->isCreatedBy($currentUser) : false,
+            'shared_users' => $book->sharedUsers->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+            ])->toArray(),
             'title' => $book->title,
             'author' => $book->author,
             'file_type' => $book->file_type->value,
@@ -162,9 +182,11 @@ class BookController extends Controller
         $fileType = BookFileType::tryFrom($extension);
 
         $book = Book::create([
+            'user_id' => $request->user()->id,
             'title' => $request->validated('title'),
             'author' => $request->validated('author'),
             'file_type' => $fileType,
+            'reading_status' => BookReadingStatus::CurrentlyReading,
         ]);
 
         $book->addMedia($file)->toMediaCollection('file');
@@ -196,6 +218,7 @@ class BookController extends Controller
      */
     public function edit(Book $book): Response
     {
+        $this->authorize('update', $book);
         $book->load('tags');
 
         $tags = Tag::orderBy('name')->get(['id', 'name']);
@@ -211,6 +234,8 @@ class BookController extends Controller
      */
     public function update(UpdateBookRequest $request, Book $book): RedirectResponse
     {
+        $this->authorize('update', $book);
+
         $book->update([
             'title' => $request->validated('title'),
             'author' => $request->validated('author'),
@@ -241,6 +266,7 @@ class BookController extends Controller
      */
     public function show(Book $book): Response
     {
+        $this->authorize('view', $book);
         $book->load('tags');
 
         $transformedBook = $this->transformBook($book);
@@ -286,6 +312,7 @@ class BookController extends Controller
      */
     public function read(Book $book): Response
     {
+        $this->authorize('view', $book);
         $book->load('tags');
 
         $transformedBook = $this->transformBook($book);
@@ -333,6 +360,7 @@ class BookController extends Controller
      */
     public function summaries(Book $book, ?Summary $summary = null): Response
     {
+        $this->authorize('view', $book);
         $book->load('tags');
 
         $transformedBook = $this->transformBook($book);
@@ -399,6 +427,8 @@ class BookController extends Controller
      */
     public function updateProgress(Request $request, Book $book): RedirectResponse
     {
+        $this->authorize('view', $book);
+
         $validated = $request->validate([
             'current_page' => ['required', 'integer', 'min:0', 'max:'.($book->total_pages ?? 999999)],
             'reading_status' => ['nullable', 'string'],
@@ -433,6 +463,8 @@ class BookController extends Controller
      */
     public function toggleSectionRead(Book $book, BookSection $section): RedirectResponse
     {
+        $this->authorize('view', $book);
+
         if ($section->book_id !== $book->id) {
             abort(404);
         }
@@ -530,6 +562,8 @@ class BookController extends Controller
      */
     public function destroySection(Book $book, BookSection $section): RedirectResponse
     {
+        $this->authorize('update', $book);
+
         if ($section->book_id !== $book->id) {
             abort(404);
         }
@@ -545,6 +579,8 @@ class BookController extends Controller
      */
     public function summarize(Request $request, Book $book): RedirectResponse
     {
+        $this->authorize('view', $book);
+
         $validated = $request->validate([
             'start_page' => ['nullable', 'integer', 'min:1'],
             'end_page' => ['nullable', 'integer', 'min:1'],
@@ -637,8 +673,52 @@ class BookController extends Controller
      */
     public function destroy(Book $book): RedirectResponse
     {
+        $this->authorize('delete', $book);
+
         $book->delete();
 
         return redirect()->route('books.index');
+    }
+
+    /**
+     * Share access of a book with another user by email.
+     */
+    public function share(Request $request, Book $book): RedirectResponse
+    {
+        $this->authorize('share', $book);
+
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $userToShare = User::where('email', $validated['email'])->first();
+
+        if (! $userToShare) {
+            return redirect()->back()->withErrors(['email' => 'No user found with this email address.']);
+        }
+
+        if ($userToShare->id === $book->user_id) {
+            return redirect()->back()->withErrors(['email' => 'You are already the owner of this book.']);
+        }
+
+        if ($book->sharedUsers()->where('users.id', $userToShare->id)->exists()) {
+            return redirect()->back()->withErrors(['email' => 'This book is already shared with this user.']);
+        }
+
+        $book->sharedUsers()->attach($userToShare->id);
+
+        return redirect()->back();
+    }
+
+    /**
+     * Revoke access of a book from a user.
+     */
+    public function unshare(Book $book, User $user): RedirectResponse
+    {
+        $this->authorize('share', $book);
+
+        $book->sharedUsers()->detach($user->id);
+
+        return redirect()->back();
     }
 }

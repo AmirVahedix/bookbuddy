@@ -30,6 +30,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/books/{book}/summarize', [BookController::class, 'summarize'])->name('books.summarize');
     Route::patch('/books/{book}/sections/{section}/toggle-read', [BookController::class, 'toggleSectionRead'])->name('books.sections.toggle-read');
     Route::delete('/books/{book}/sections/{section}', [BookController::class, 'destroySection'])->name('books.sections.destroy');
+    Route::post('/books/{book}/share', [BookController::class, 'share'])->name('books.share');
+    Route::delete('/books/{book}/share/{user}', [BookController::class, 'unshare'])->name('books.unshare');
     Route::delete('/books/{book}', [BookController::class, 'destroy'])->name('books.destroy');
     Route::get('/summaries/{summary}/stream', [SummaryController::class, 'stream'])->name('summaries.stream');
     Route::post('/summaries/{summary}/chat', [SummaryController::class, 'chat'])->name('summaries.chat');

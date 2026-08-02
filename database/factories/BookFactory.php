@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\BookFileType;
 use App\Enums\BookReadingStatus;
 use App\Models\Book;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -37,6 +38,7 @@ class BookFactory extends Factory
         $totalPages = fake()->numberBetween(100, 1000);
 
         return [
+            'user_id' => auth()->id() ?? User::factory(),
             'title' => $book['title'],
             'author' => $book['author'],
             'file_type' => $fileType,
