@@ -1,3 +1,39 @@
+<script setup>
+import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Languages } from '@lucide/vue';
+import { useI18n } from '../../../composables/useI18n';
+
+const props = defineProps({
+    book: {
+        type: Object,
+        required: true,
+    },
+    isDarkMode: {
+        type: Boolean,
+        required: true,
+    },
+    activeSectionId: {
+        type: [Number, String],
+        default: null,
+    },
+});
+
+const emit = defineEmits(['toggle-theme', 'open-settings']);
+const { t, locale, setLocale } = useI18n();
+
+const backUrl = computed(() => {
+    if (props.activeSectionId) {
+        return `/books/${props.book.id}?open_section=${props.activeSectionId}`;
+    }
+    return `/books/${props.book.id}`;
+});
+
+function toggleLanguage() {
+    setLocale(locale.value === 'fa' ? 'en' : 'fa');
+}
+</script>
+
 <template>
     <header class="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors duration-200 shrink-0 pt-[env(safe-area-inset-top)]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -6,26 +42,36 @@
                 <Link
                     :href="backUrl"
                     class="p-2 rounded-xl border border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
-                    title="Back to Book"
+                    :title="t('back_to_book')"
                 >
-                    <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <svg class="h-4.5 w-4.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
                 </Link>
-                <div class="min-w-0">
+                <div class="min-w-0 text-start">
                     <h1 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-1 leading-tight font-sans">
                         {{ props.book.title }}
                     </h1>
                 </div>
             </div>
 
-            <!-- Settings / Theme / Info -->
-            <div class="flex items-center gap-2.5 sm:gap-3">
+            <!-- Settings / Theme / Language -->
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <!-- Language Toggle Button -->
+                <button
+                    @click="toggleLanguage"
+                    type="button"
+                    class="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+                >
+                    <Languages class="w-4 h-4 text-violet-500" />
+                    <span>{{ locale === 'fa' ? 'EN' : 'FA' }}</span>
+                </button>
+
                 <!-- Reading Settings Button -->
                 <button
                     @click="emit('open-settings')"
                     class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer flex items-center justify-center"
-                    title="Reading Settings (Font & Text Size)"
+                    :title="t('settings')"
                     aria-label="Reading Settings"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -51,38 +97,9 @@
                     :href="backUrl"
                     class="hidden sm:inline-flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-800 hover:border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:text-white transition-all duration-200 cursor-pointer"
                 >
-                    Book Details
+                    {{ t('book_details') }}
                 </Link>
             </div>
         </div>
     </header>
 </template>
-
-<script setup>
-import { Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
-
-const props = defineProps({
-    book: {
-        type: Object,
-        required: true,
-    },
-    isDarkMode: {
-        type: Boolean,
-        required: true,
-    },
-    activeSectionId: {
-        type: [Number, String],
-        default: null,
-    },
-});
-
-const emit = defineEmits(['toggle-theme', 'open-settings']);
-
-const backUrl = computed(() => {
-    if (props.activeSectionId) {
-        return `/books/${props.book.id}?open_section=${props.activeSectionId}`;
-    }
-    return `/books/${props.book.id}`;
-});
-</script>

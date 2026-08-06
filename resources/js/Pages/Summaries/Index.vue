@@ -1,6 +1,8 @@
 <script setup>
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
+import { useI18n } from '../../composables/useI18n';
+import { detectDirection } from '../../utils/textDirection.js';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
 import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
@@ -22,6 +24,8 @@ const props = defineProps({
         default: null,
     },
 });
+
+const { t, isRtl } = useI18n();
 
 const isDarkMode = ref(false);
 const searchQuery = ref('');
@@ -66,12 +70,6 @@ const formatPages = (targetPages) => {
     return `Pages ${targetPages.join(', ')}`;
 };
 
-const cleanExcerpt = (text) => {
-    if (!text) return '';
-    return text.replace(/[#*`_-]/g, '').trim();
-};
-
-// Client-side search filtering on top of server-side book filtering
 const filteredSummaries = computed(() => {
     let result = [...props.summaries];
 
@@ -99,7 +97,7 @@ const handleImageError = (summaryId) => {
 </script>
 
 <template>
-    <Head title="Chats" />
+    <Head :title="t('summaries')" />
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors duration-200">
         <!-- Navigation Header -->
@@ -108,15 +106,15 @@ const handleImageError = (summaryId) => {
         <!-- Page Content -->
         <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-[calc(2rem+env(safe-area-inset-top))] sm:pt-8 pb-24 sm:pb-8">
             <!-- Page Header -->
-            <div class="mb-8">
-                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Chats</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Browse and search through all your AI-generated chats across your library.</p>
+            <div class="mb-8 text-start">
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{{ t('summaries_index_title') }}</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{{ t('summaries_index_subtitle') }}</p>
             </div>
 
             <!-- Filters Section -->
             <div class="mb-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm transition-colors duration-200 flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div class="w-full md:w-1/3 relative">
-                    <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 dark:text-slate-500 pointer-events-none">
+                    <span class="absolute inset-y-0 start-3 flex items-center text-slate-400 dark:text-slate-500 pointer-events-none">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
@@ -124,21 +122,21 @@ const handleImageError = (summaryId) => {
                     <input
                         type="text"
                         v-model="searchQuery"
-                        placeholder="Search inside chats..."
-                        class="w-full pl-9 pr-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors"
+                        :placeholder="t('search_placeholder')"
+                        class="w-full ps-9 pe-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors text-start"
                     />
                 </div>
 
                 <div class="w-full md:w-auto flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                     <div class="flex items-center gap-2">
-                        <label for="book-filter" class="text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">Filter by Book:</label>
+                        <label for="book-filter" class="text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ t('library') }}:</label>
                         <select
                             id="book-filter"
                             v-model="filterBookId"
                             @change="handleBookFilterChange"
                             class="text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3 py-2 focus:outline-none focus:border-violet-500 cursor-pointer min-w-[200px]"
                         >
-                            <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All Books</option>
+                            <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ t('status_all') }}</option>
                             <option v-for="book in books" :key="book.id" :value="book.id" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                                 {{ book.title }}
                             </option>
@@ -150,7 +148,7 @@ const handleImageError = (summaryId) => {
                         @click="clearFilters"
                         class="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
                     >
-                        Clear Filters
+                        {{ t('clear_search') }}
                     </button>
                 </div>
             </div>
@@ -161,7 +159,7 @@ const handleImageError = (summaryId) => {
                     v-for="summary in filteredSummaries"
                     :key="summary.id"
                     @click="router.visit('/books/' + summary.book_id + '/summaries/' + summary.id)"
-                    class="group relative flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-violet-500/50 dark:hover:border-violet-500/50 hover:shadow-md transition-all duration-200 cursor-pointer"
+                    class="group relative flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm hover:border-violet-500/50 dark:hover:border-violet-500/50 hover:shadow-md transition-all duration-200 cursor-pointer text-start"
                 >
                     <div>
                         <!-- Header Details -->
@@ -184,14 +182,14 @@ const handleImageError = (summaryId) => {
                                 </div>
                             </Link>
 
-                            <div class="min-w-0 flex-1">
+                            <div class="min-w-0 flex-1 text-start">
                                 <!-- Section Title as Main Card Title -->
                                 <Link
                                     :href="'/books/' + summary.book_id + '/summaries/' + summary.id"
                                     @click.stop
                                     class="font-black text-base text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-2 leading-snug"
                                 >
-                                    {{ summary.section_title || 'Section Summary' }}
+                                    {{ summary.section_title || t('ai_summary') }}
                                 </Link>
 
                                 <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
@@ -211,7 +209,7 @@ const handleImageError = (summaryId) => {
                     <!-- Actions Footer -->
                     <div class="border-t border-slate-100 dark:border-slate-800/80 pt-3 flex items-center justify-between mt-2">
                         <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                            Generated {{ summary.created_at }}
+                            {{ summary.created_at }}
                         </span>
 
                         <div class="flex items-center gap-3">
@@ -220,15 +218,15 @@ const handleImageError = (summaryId) => {
                                 @click.stop
                                 class="inline-flex items-center text-xs font-semibold text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
                             >
-                                Book Details
+                                {{ t('book_details') }}
                             </Link>
                             <Link
                                 :href="'/books/' + summary.book_id + '/summaries/' + summary.id"
                                 @click.stop
                                 class="inline-flex items-center text-xs font-bold text-violet-600 dark:text-violet-400 group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors"
                             >
-                                Open Chat
-                                <svg class="h-3.5 w-3.5 ml-1 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                {{ t('read_summary') }}
+                                <svg class="h-3.5 w-3.5 ms-1 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>
                             </Link>
@@ -245,9 +243,9 @@ const handleImageError = (summaryId) => {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <h3 class="text-lg font-semibold text-slate-800 dark:text-white">No chats found</h3>
+                    <h3 class="text-lg font-semibold text-slate-800 dark:text-white">{{ t('no_summaries') }}</h3>
                     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
-                        {{ summaries.length > 0 ? "Adjust your filters or try a different search term to find chats." : "You haven't generated any AI chats yet. Select a book from your library to get started." }}
+                        {{ t('generate_first_summary') }}
                     </p>
                     <div class="flex items-center justify-center gap-3">
                         <button
@@ -255,13 +253,13 @@ const handleImageError = (summaryId) => {
                             @click="clearFilters"
                             class="inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer"
                         >
-                            Reset Filters
+                            {{ t('clear_search') }}
                         </button>
                         <Link
                             href="/books"
                             class="inline-flex items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200 cursor-pointer"
                         >
-                            Browse Books
+                            {{ t('my_books') }}
                         </Link>
                     </div>
                 </div>

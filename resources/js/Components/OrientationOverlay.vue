@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from '../composables/useI18n';
 
+const { t } = useI18n();
 const isLandscapeMobile = ref(false);
 
 const checkOrientation = () => {
@@ -39,10 +41,7 @@ onUnmounted(() => {
             </div>
 
             <div class="space-y-2">
-                <h3 class="text-lg font-black tracking-tight text-white">Rotate Device</h3>
-                <p class="text-xs text-slate-400 font-medium leading-relaxed">
-                    Please rotate your phone to portrait (vertical) orientation for the best reading experience.
-                </p>
+                <h3 class="text-lg font-black tracking-tight text-white">{{ t('rotate_device') }}</h3>
             </div>
         </div>
     </div>

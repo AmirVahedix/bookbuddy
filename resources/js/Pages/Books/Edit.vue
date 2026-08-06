@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
+import { useI18n } from '../../composables/useI18n';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
 import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
@@ -19,6 +20,8 @@ const props = defineProps({
     },
 });
 
+const { t, isRtl } = useI18n();
+
 const isDarkMode = ref(false);
 const thumbnailInput = ref(null);
 const thumbnailPreview = ref(props.book.thumbnail_url || null);
@@ -26,22 +29,6 @@ const thumbnailPreview = ref(props.book.thumbnail_url || null);
 onMounted(() => {
     isDarkMode.value = document.documentElement.classList.contains('dark');
 });
-
-const toggleTheme = () => {
-    if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-        isDarkMode.value = false;
-    } else {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-        isDarkMode.value = true;
-    }
-};
-
-const handleLogout = () => {
-    router.post('/logout');
-};
 
 const form = useForm({
     _method: 'put',
@@ -139,7 +126,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head :title="`Edit ${props.book.title}`" />
+    <Head :title="`${t('edit_book')} ${props.book.title}`" />
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors duration-200">
         <!-- Navigation Header -->
@@ -153,17 +140,17 @@ const submit = () => {
                     :href="`/books/${props.book.id}`"
                     class="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
                 >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Book Details
+                    {{ t('back_to_book') }}
                 </Link>
             </div>
 
             <!-- Page Header -->
-            <div class="mb-8">
-                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Edit Book</h1>
-                <p class="text-sm text-slate-500 mt-2">Update the title, author, cover image, or tags for this book.</p>
+            <div class="mb-8 text-start">
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{{ t('edit_title') }}</h1>
+                <p class="text-sm text-slate-500 mt-2">{{ t('edit_subtitle') }}</p>
             </div>
 
             <!-- Main Form Card -->
@@ -171,10 +158,9 @@ const submit = () => {
                 <form @submit.prevent="submit" class="space-y-6">
 
                     <!-- Thumbnail Upload Section -->
-                    <div class="space-y-2 flex flex-col justify-between">
-                        <label class="block text-sm font-bold text-slate-700 dark:text-slate-300">Book Cover Image</label>
+                    <div class="space-y-2 flex flex-col justify-between text-start">
+                        <label class="block text-sm font-bold text-slate-700 dark:text-slate-300">{{ t('cover_image') }}</label>
 
-                        <!-- Upload Zone when no preview -->
                         <div
                             v-if="!thumbnailPreview"
                             @click="triggerThumbnailInput"
@@ -192,11 +178,10 @@ const submit = () => {
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">Upload a cover image or <span class="text-violet-600 dark:text-violet-400">browse</span></h3>
-                            <p class="text-xs text-slate-400 mt-1.5">Supports JPG, PNG, WEBP, GIF up to 5MB</p>
+                            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ t('cover_image') }}</h3>
+                            <p class="text-xs text-slate-400 mt-1.5">JPG, PNG, WEBP, GIF</p>
                         </div>
 
-                        <!-- Thumbnail Preview Display -->
                         <div
                             v-else
                             class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl min-h-[160px]"
@@ -205,13 +190,10 @@ const submit = () => {
                                 <div class="relative h-28 w-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-100 dark:bg-slate-900 shadow-sm">
                                     <img :src="thumbnailPreview" class="h-full w-full object-cover" alt="Thumbnail Preview" />
                                 </div>
-                                <div class="min-w-0 flex-1">
-                                    <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 truncate pr-4">
-                                        {{ form.thumbnail ? form.thumbnail.name : 'Current Cover Image' }}
+                                <div class="min-w-0 flex-1 text-start">
+                                    <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 truncate pe-4">
+                                        {{ form.thumbnail ? form.thumbnail.name : props.book.title }}
                                     </h4>
-                                    <p v-if="form.thumbnail" class="text-xs text-slate-400 mt-1">
-                                        {{ formatBytes(form.thumbnail.size) }}
-                                    </p>
                                     <button
                                         type="button"
                                         @click="triggerThumbnailInput"
@@ -220,7 +202,7 @@ const submit = () => {
                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                         </svg>
-                                        Change cover image
+                                        {{ t('cover_image') }}
                                     </button>
                                     <input
                                         ref="thumbnailInput"
@@ -234,7 +216,7 @@ const submit = () => {
                                     type="button"
                                     @click="clearThumbnail"
                                     class="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                    title="Remove cover"
+                                    :title="t('delete')"
                                 >
                                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -243,67 +225,65 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <!-- Error display -->
                         <p v-if="form.errors.thumbnail" class="text-xs font-semibold text-rose-500 mt-1.5">{{ form.errors.thumbnail }}</p>
                     </div>
 
                     <!-- Title Field -->
-                    <div class="space-y-2">
-                        <label for="title" class="block text-sm font-bold text-slate-700 dark:text-slate-300">Book Title</label>
+                    <div class="space-y-2 text-start">
+                        <label for="title" class="block text-sm font-bold text-slate-700 dark:text-slate-300">{{ t('book_title') }}</label>
                         <input
                             id="title"
                             v-model="form.title"
                             type="text"
-                            placeholder="Enter the book title"
-                            class="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white dark:bg-slate-950/20 dark:hover:bg-slate-950/40 dark:focus:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 text-sm font-semibold outline-none transition-all duration-200 placeholder-slate-400 dark:placeholder-slate-500"
+                            :placeholder="t('book_title')"
+                            class="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white dark:bg-slate-950/20 dark:hover:bg-slate-950/40 dark:focus:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 text-sm font-semibold outline-none transition-all duration-200 text-start"
                             required
                         />
                         <p v-if="form.errors.title" class="text-xs font-semibold text-rose-500 mt-1">{{ form.errors.title }}</p>
                     </div>
 
                     <!-- Author Field -->
-                    <div class="space-y-2">
-                        <label for="author" class="block text-sm font-bold text-slate-700 dark:text-slate-300">Author</label>
+                    <div class="space-y-2 text-start">
+                        <label for="author" class="block text-sm font-bold text-slate-700 dark:text-slate-300">{{ t('author_name') }}</label>
                         <input
                             id="author"
                             v-model="form.author"
                             type="text"
-                            placeholder="Enter the author's name"
-                            class="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white dark:bg-slate-950/20 dark:hover:bg-slate-950/40 dark:focus:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 text-sm font-semibold outline-none transition-all duration-200 placeholder-slate-400 dark:placeholder-slate-500"
+                            :placeholder="t('author_name')"
+                            class="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white dark:bg-slate-950/20 dark:hover:bg-slate-950/40 dark:focus:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 text-sm font-semibold outline-none transition-all duration-200 text-start"
                         />
                         <p v-if="form.errors.author" class="text-xs font-semibold text-rose-500 mt-1">{{ form.errors.author }}</p>
                     </div>
 
                     <!-- Tags Field -->
-                    <div class="space-y-2 relative">
-                        <label for="tags-input" class="block text-sm font-bold text-slate-700 dark:text-slate-300">Tags</label>
+                    <div class="space-y-2 relative text-start">
+                        <label for="tags-input" class="block text-sm font-bold text-slate-700 dark:text-slate-300">{{ t('genre') }}</label>
                         <div class="relative">
                             <input
                                 id="tags-input"
                                 v-model="searchTagQuery"
                                 type="text"
-                                placeholder="Search tags or type to create a new one..."
+                                :placeholder="t('select_genre')"
                                 @focus="showTagDropdown = true"
                                 @blur="handleBlur"
                                 @keydown.enter.prevent="createNewTagFromQuery"
-                                class="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white dark:bg-slate-950/20 dark:hover:bg-slate-950/40 dark:focus:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 text-sm font-semibold outline-none transition-all duration-200 placeholder-slate-400 dark:placeholder-slate-500"
+                                class="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white dark:bg-slate-950/20 dark:hover:bg-slate-950/40 dark:focus:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 text-sm font-semibold outline-none transition-all duration-200 text-start"
                             />
                             <button
                                 v-if="searchTagQuery"
                                 type="button"
                                 @click="createNewTagFromQuery"
-                                class="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                                class="absolute end-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-all duration-200 active:scale-[0.97] cursor-pointer"
                             >
-                                Add
+                                {{ t('add_book') }}
                             </button>
                         </div>
 
                         <!-- Dropdown list of suggestions -->
                         <div
                             v-if="showTagDropdown && (filteredTags.length > 0 || searchTagQuery.trim())"
-                            class="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-2xl p-2 transition-all duration-200"
+                            class="absolute z-50 start-0 end-0 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-2xl p-2 transition-all duration-200"
                         >
-                            <!-- Search query exists and is not in filtered tags -> show create option -->
                             <div
                                 v-if="searchTagQuery.trim() && !props.tags.some(t => t.name.toLowerCase() === searchTagQuery.trim().toLowerCase())"
                                 @mousedown="createNewTagFromQuery"
@@ -312,10 +292,9 @@ const submit = () => {
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                                 </svg>
-                                Create new tag: <span class="font-bold">"{{ searchTagQuery.trim() }}"</span>
+                                <span>"{{ searchTagQuery.trim() }}"</span>
                             </div>
 
-                            <!-- Regular filtered suggestions -->
                             <div
                                 v-for="tag in filteredTags"
                                 :key="tag.id"
@@ -323,14 +302,6 @@ const submit = () => {
                                 class="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl cursor-pointer transition-colors duration-150"
                             >
                                 {{ tag.name }}
-                            </div>
-
-                            <!-- If query has text, but nothing matched -->
-                            <div
-                                v-if="filteredTags.length === 0 && !searchTagQuery.trim()"
-                                class="px-3 py-4 text-xs font-semibold text-slate-400 dark:text-slate-500 text-center"
-                            >
-                                No remaining tags to select
                             </div>
                         </div>
 
@@ -353,8 +324,6 @@ const submit = () => {
                                 </button>
                             </span>
                         </div>
-
-                        <p v-if="form.errors.tags" class="text-xs font-semibold text-rose-500 mt-1">{{ form.errors.tags }}</p>
                     </div>
 
                     <!-- Submit & Cancel Buttons -->
@@ -364,17 +333,17 @@ const submit = () => {
                             :disabled="form.processing"
                             class="w-full sm:w-auto inline-flex items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-400 disabled:from-slate-400 disabled:to-slate-400 dark:disabled:from-slate-800 dark:disabled:to-slate-800 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 transition-all duration-200 active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed cursor-pointer"
                         >
-                            <svg v-if="form.processing" class="animate-spin -ml-1 mr-2.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <svg v-if="form.processing" class="animate-spin -ms-1 me-2.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Save Changes
+                            {{ form.processing ? t('updating') : t('save_book') }}
                         </button>
                         <Link
                             :href="`/books/${props.book.id}`"
                             class="w-full sm:w-auto text-center px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                         >
-                            Cancel
+                            {{ t('cancel') }}
                         </Link>
                     </div>
                 </form>

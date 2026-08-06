@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, watchEffect } from 'vue';
 import { Plus } from '@lucide/vue';
+import { useI18n } from '../composables/useI18n';
 import HeaderNavigation from '../Components/HeaderNavigation.vue';
 import BottomNavigation from '../Components/BottomNavigation.vue';
 
@@ -27,6 +28,8 @@ const props = defineProps({
         required: true,
     },
 });
+
+const { t, isRtl } = useI18n();
 
 const brokenImages = ref({});
 
@@ -128,16 +131,16 @@ const doneBooksSlider = ref(null);
 
 const scrollSlider = (sliderRef, direction) => {
     if (!sliderRef) return;
-    const scrollAmount = direction === 'left' ? -320 : 320;
+    const scrollAmount = (direction === 'left' ? -320 : 320) * (isRtl.value ? -1 : 1);
     sliderRef.scrollBy({ left: scrollAmount, behavior: 'smooth' });
 };
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head :title="t('dashboard')" />
 
     <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-        <!-- Floating Pill Header Navigation (Apple Music style) -->
+        <!-- Floating Pill Header Navigation -->
         <HeaderNavigation />
 
         <!-- Main Content -->
@@ -148,9 +151,9 @@ const scrollSlider = (sliderRef, direction) => {
                 <div class="flex items-end justify-between mb-4">
                     <div>
                         <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                            Currently Reading
+                            {{ t('reading_now') }}
                         </h2>
-                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">In-progress books from your library</p>
+                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ t('overview_subtitle') }}</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="hidden sm:flex items-center gap-1.5">
@@ -159,7 +162,7 @@ const scrollSlider = (sliderRef, direction) => {
                                 class="p-2 rounded-full bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 border border-slate-300/60 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                                 aria-label="Scroll left"
                             >
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <svg class="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                                 </svg>
                             </button>
@@ -168,7 +171,7 @@ const scrollSlider = (sliderRef, direction) => {
                                 class="p-2 rounded-full bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 border border-slate-300/60 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                                 aria-label="Scroll right"
                             >
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <svg class="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                                 </svg>
                             </button>
@@ -177,7 +180,7 @@ const scrollSlider = (sliderRef, direction) => {
                             href="/books?status=currently_reading"
                             class="text-xs sm:text-sm font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-500 dark:hover:text-violet-300 transition-colors"
                         >
-                            See All →
+                            {{ t('view_all_books') }} {{ isRtl ? '←' : '→' }}
                         </Link>
                     </div>
                 </div>
@@ -211,8 +214,8 @@ const scrollSlider = (sliderRef, direction) => {
                                     </span>
                                 </div>
 
-                                <!-- Brand Badge overlay top right -->
-                                <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
+                                <!-- Brand Badge overlay top end -->
+                                <div class="absolute top-3 end-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
                                     {{ book.file_type || 'BOOK' }}
                                 </div>
 
@@ -221,11 +224,11 @@ const scrollSlider = (sliderRef, direction) => {
                                     :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', !getDynamicOverlayBg(book.id) && getTheme(book.id).overlayBg]"
                                     :style="getDynamicOverlayBg(book.id)"
                                 >
-                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-amber-300 transition-colors">
+                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-amber-300 transition-colors text-start">
                                         {{ book.title }}
                                     </h3>
-                                    <p class="text-xs text-white/80 font-medium mt-1 truncate">
-                                        {{ book.author || 'Unknown Author' }}
+                                    <p class="text-xs text-white/80 font-medium mt-1 truncate text-start">
+                                        {{ book.author || t('author') }}
                                     </p>
 
                                     <!-- Progress Bar -->
@@ -253,9 +256,9 @@ const scrollSlider = (sliderRef, direction) => {
 
                 <!-- Empty State -->
                 <div v-else class="rounded-3xl border border-white/10 bg-slate-900/60 p-8 text-center backdrop-blur-md">
-                    <p class="text-sm text-slate-400">No books currently being read.</p>
+                    <p class="text-sm text-slate-400">{{ t('no_books_yet') }}</p>
                     <Link href="/books" class="mt-3 inline-block text-xs font-semibold text-violet-400 hover:text-violet-300">
-                        Browse catalog →
+                        {{ t('library') }} {{ isRtl ? '←' : '→' }}
                     </Link>
                 </div>
 
@@ -265,24 +268,21 @@ const scrollSlider = (sliderRef, direction) => {
                         href="/books/create"
                         class="group relative flex items-center justify-between p-5 sm:p-6 rounded-3xl border border-violet-500/20 dark:border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-purple-500/10 hover:from-violet-500/20 hover:via-indigo-500/20 hover:to-purple-500/20 shadow-lg shadow-violet-500/5 hover:shadow-violet-500/15 backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden"
                     >
-                        <!-- Background glow effect -->
-                        <div class="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl group-hover:bg-violet-600/30 transition-all duration-500 pointer-events-none"></div>
-
                         <div class="flex items-center gap-4 relative z-10">
-                            <div class="h-12 w-12 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-violet-600/30 group-hover:scale-110 transition-transform duration-300">
+                            <div class="h-12 w-12 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-violet-600/30 group-hover:scale-110 transition-transform duration-300 shrink-0">
                                 <Plus class="h-6 w-6 stroke-[2.5]" />
                             </div>
-                            <div>
+                            <div class="text-start">
                                 <h4 class="text-base font-extrabold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
-                                    Add a New Book
+                                    {{ t('add_book') }}
                                 </h4>
                                 <span class="text-xs font-semibold text-violet-600/80 dark:text-violet-400/90">
-                                    PDF or EPUB document
+                                    {{ t('supported_formats') }}
                                 </span>
                             </div>
                         </div>
 
-                        <div class="relative z-10 h-10 w-10 rounded-2xl bg-white dark:bg-slate-900 border border-violet-500/20 dark:border-violet-400/30 flex items-center justify-center text-violet-600 dark:text-violet-400 shadow-sm group-hover:bg-violet-600 group-hover:text-white group-hover:border-transparent transition-all duration-300">
+                        <div class="relative z-10 h-10 w-10 rounded-2xl bg-white dark:bg-slate-900 border border-violet-500/20 dark:border-violet-400/30 flex items-center justify-center text-violet-600 dark:text-violet-400 shadow-sm group-hover:bg-violet-600 group-hover:text-white group-hover:border-transparent transition-all duration-300 shrink-0">
                             <Plus class="h-5 w-5 stroke-[2.5]" />
                         </div>
                     </Link>
@@ -294,9 +294,9 @@ const scrollSlider = (sliderRef, direction) => {
                 <div class="flex items-end justify-between mb-4">
                     <div>
                         <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                            Done Books
+                            {{ t('completed') }}
                         </h2>
-                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Completed readings in your shelf</p>
+                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ t('library_subtitle') }}</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="hidden sm:flex items-center gap-1.5">
@@ -305,7 +305,7 @@ const scrollSlider = (sliderRef, direction) => {
                                 class="p-2 rounded-full bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 border border-slate-300/60 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                                 aria-label="Scroll left"
                             >
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <svg class="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                                 </svg>
                             </button>
@@ -314,7 +314,7 @@ const scrollSlider = (sliderRef, direction) => {
                                 class="p-2 rounded-full bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 border border-slate-300/60 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                                 aria-label="Scroll right"
                             >
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <svg class="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                                 </svg>
                             </button>
@@ -323,7 +323,7 @@ const scrollSlider = (sliderRef, direction) => {
                             href="/books?status=done"
                             class="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors"
                         >
-                            See All →
+                            {{ t('view_all_books') }} {{ isRtl ? '←' : '→' }}
                         </Link>
                     </div>
                 </div>
@@ -357,12 +357,12 @@ const scrollSlider = (sliderRef, direction) => {
                                     </span>
                                 </div>
 
-                                <!-- Completed Checkmark Badge top right -->
-                                <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-emerald-500/90 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1 shadow">
+                                <!-- Completed Checkmark Badge top end -->
+                                <div class="absolute top-3 end-3 px-2 py-0.5 rounded-full bg-emerald-500/90 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1 shadow">
                                     <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                     </svg>
-                                    Done
+                                    {{ t('completed') }}
                                 </div>
 
                                 <!-- Bottom Related Color Block Overlay -->
@@ -370,15 +370,15 @@ const scrollSlider = (sliderRef, direction) => {
                                     :class="['absolute inset-x-0 bottom-0 p-4 pt-12 flex flex-col justify-end border-t border-white/10 backdrop-blur-md', !getDynamicOverlayBg(book.id) && getTheme(book.id + 2).overlayBg]"
                                     :style="getDynamicOverlayBg(book.id)"
                                 >
-                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-emerald-300 transition-colors">
+                                    <h3 class="font-bold text-base sm:text-lg text-white leading-tight line-clamp-1 truncate drop-shadow-sm group-hover:text-emerald-300 transition-colors text-start">
                                         {{ book.title }}
                                     </h3>
-                                    <p class="text-xs text-white/80 font-medium mt-1 truncate">
-                                        {{ book.author || 'Unknown Author' }}
+                                    <p class="text-xs text-white/80 font-medium mt-1 truncate text-start">
+                                        {{ book.author || t('author') }}
                                     </p>
-                                    <p class="text-[11px] text-emerald-400 font-semibold mt-2 flex items-center gap-1">
-                                        <span>Fully Read</span>
-                                        <span>({{ book.total_pages }} pgs)</span>
+                                    <p class="text-[11px] text-emerald-400 font-semibold mt-2 flex items-center gap-1 text-start">
+                                        <span>{{ t('status_completed') }}</span>
+                                        <span>({{ book.total_pages }} {{ t('pages') }})</span>
                                     </p>
                                 </div>
                             </Link>
@@ -388,16 +388,13 @@ const scrollSlider = (sliderRef, direction) => {
 
                 <!-- Empty State -->
                 <div v-else class="rounded-3xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 p-8 text-center backdrop-blur-md">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">No completed books yet.</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ t('no_books_yet') }}</p>
                     <Link href="/books" class="mt-3 inline-block text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300">
-                        View library →
+                        {{ t('library') }} {{ isRtl ? '←' : '→' }}
                     </Link>
                 </div>
             </section>
-
-            <!-- SECTION 2: Done Books Slider (end of main content) -->
         </main>
-
 
         <!-- Bottom Navigation for Mobile -->
         <BottomNavigation />
@@ -405,7 +402,6 @@ const scrollSlider = (sliderRef, direction) => {
 </template>
 
 <style scoped>
-/* Hide scrollbars while allowing smooth touch/scroll interaction */
 .scrollbar-none::-webkit-scrollbar {
     display: none;
 }

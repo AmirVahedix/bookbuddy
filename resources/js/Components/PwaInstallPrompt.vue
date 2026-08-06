@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import { useI18n } from '../composables/useI18n';
 
+const { t } = useI18n();
 const deferredPrompt = ref(null);
 const isStandalone = ref(false);
 const isIOS = ref(false);
@@ -86,7 +88,7 @@ const closeModal = () => {
         >
             <div
                 v-if="showPrompt && !isStandalone"
-                class="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 p-4 rounded-2xl bg-slate-900/95 dark:bg-slate-900/95 text-white border border-violet-500/30 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-4"
+                class="fixed bottom-20 sm:bottom-6 start-4 end-4 sm:start-auto sm:end-6 sm:max-w-md z-50 p-4 rounded-2xl bg-slate-900/95 dark:bg-slate-900/95 text-white border border-violet-500/30 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-4"
             >
                 <div class="flex items-center gap-3.5">
                     <div class="h-11 w-11 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
@@ -95,8 +97,8 @@ const closeModal = () => {
                         </svg>
                     </div>
                     <div>
-                        <h4 class="font-semibold text-sm leading-snug">Install BookBuddy App</h4>
-                        <p class="text-xs text-slate-300">Fast access & offline reading on your iPad</p>
+                        <h4 class="font-semibold text-sm leading-snug">{{ t('install_app') }}</h4>
+                        <p class="text-xs text-slate-300">{{ t('install_desc') }}</p>
                     </div>
                 </div>
 
@@ -105,7 +107,7 @@ const closeModal = () => {
                         @click="handleInstallClick"
                         class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-md transition-all active:scale-95 flex items-center gap-1.5"
                     >
-                        <span>Install</span>
+                        <span>{{ t('install') }}</span>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
@@ -113,7 +115,7 @@ const closeModal = () => {
                     <button
                         @click="dismissBanner"
                         class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-                        title="Dismiss"
+                        :title="t('dismiss')"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

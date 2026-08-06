@@ -1,15 +1,18 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { Languages } from '@lucide/vue';
+import { useI18n } from '../composables/useI18n';
 import OrientationOverlay from './OrientationOverlay.vue';
 
 const page = usePage();
+const { t, locale, setLocale } = useI18n();
 
-const tabs = [
-    { label: 'Home', href: '/dashboard' },
-    { label: 'Books', href: '/books' },
-    { label: 'Chats', href: '/summaries' },
-];
+const tabs = computed(() => [
+    { label: t('dashboard'), href: '/dashboard' },
+    { label: t('my_books'), href: '/books' },
+    { label: t('summaries'), href: '/summaries' },
+]);
 
 const activeIndex = computed(() => {
     const url = page.url;
@@ -17,18 +20,22 @@ const activeIndex = computed(() => {
     if (url.startsWith('/summaries')) return 2;
     return 0; // default /dashboard
 });
+
+function toggleLanguage() {
+    setLocale(locale.value === 'fa' ? 'en' : 'fa');
+}
 </script>
 
 <template>
     <OrientationOverlay />
 
     <header class="hidden sm:flex sticky top-0 z-50 w-full justify-center pt-3 pb-2 px-4 transition-all duration-300 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-        <div class="relative inline-flex items-center bg-slate-900/60 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/20 dark:border-white/15 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-full px-2 py-1.5 text-white transition-all duration-300">
+        <div class="relative inline-flex items-center bg-slate-900/60 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/20 dark:border-white/15 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-full px-3 py-1.5 text-white transition-all duration-300 gap-2">
             <!-- Glossy specular highlight layer for liquid glass look -->
             <div class="absolute inset-0 rounded-full bg-gradient-to-b from-white/25 via-white/5 to-transparent pointer-events-none"></div>
 
             <!-- Navigation Tabs with Quick Fade Active Bubble -->
-            <nav class="relative inline-flex items-center gap-1 px-1 py-0.5 z-10">
+            <nav class="relative inline-flex items-center gap-1 z-10">
                 <Link
                     v-for="(tab, idx) in tabs"
                     :key="tab.href"
@@ -43,6 +50,19 @@ const activeIndex = computed(() => {
                     {{ tab.label }}
                 </Link>
             </nav>
+
+            <div class="h-4 w-px bg-white/20 z-10"></div>
+
+            <!-- Language Toggle Button -->
+            <button
+                @click="toggleLanguage"
+                type="button"
+                class="relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-full bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white border border-white/15 transition-all duration-150 cursor-pointer select-none active:scale-95"
+                :title="locale === 'fa' ? 'Switch to English' : 'تغییر به فارسی'"
+            >
+                <Languages class="w-3.5 h-3.5" />
+                <span>{{ locale === 'fa' ? 'English' : 'فارسی' }}</span>
+            </button>
         </div>
     </header>
 </template>

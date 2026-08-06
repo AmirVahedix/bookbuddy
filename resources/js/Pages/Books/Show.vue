@@ -1,7 +1,9 @@
 <script setup>
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, shallowRef, onMounted, computed, watch, nextTick } from 'vue';
+import { useI18n } from '../../composables/useI18n';
 import { renderMarkdown } from '../../utils/markdown.js';
+import { detectDirection } from '../../utils/textDirection.js';
 import BottomNavigation from '../../Components/BottomNavigation.vue';
 import HeaderNavigation from '../../Components/HeaderNavigation.vue';
 
@@ -23,6 +25,8 @@ const props = defineProps({
         default: () => [],
     },
 });
+
+const { t, isRtl } = useI18n();
 
 const isDarkMode = ref(false);
 const activeSummaryTab = ref('all'); // 'all' or 'ai'
@@ -212,15 +216,15 @@ const getInitials = (title) => {
 const getStatusBadge = (status) => {
     switch (status) {
         case 'currently_reading':
-            return { label: 'Reading', class: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' };
+            return { label: t('status_reading'), class: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' };
         case 'done':
-            return { label: 'Completed', class: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
+            return { label: t('status_completed'), class: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
         case 'planned_for_future':
-            return { label: 'To Read', class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
+            return { label: t('status_unread'), class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
         case 'abandoned':
-            return { label: 'Abandoned', class: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' };
+            return { label: t('status_all'), class: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' };
         default:
-            return { label: 'Unknown', class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
+            return { label: t('status_all'), class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' };
     }
 };
 
@@ -591,12 +595,12 @@ const deleteBook = () => {
                         </div>
 
                         <!-- Floating Action Icon Buttons (Edit, Share & Delete for Creator) -->
-                        <div v-if="props.book.is_creator" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-20">
+                        <div v-if="props.book.is_creator" class="absolute top-2.5 start-2.5 flex items-center gap-1.5 z-20">
                             <button
                                 type="button"
                                 @click="router.visit('/books/' + props.book.id + '/edit')"
                                 class="w-8 h-8 min-w-[32px] min-h-[32px] max-w-[32px] max-h-[32px] p-0 m-0 rounded-xl bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-md hover:scale-105 inline-flex items-center justify-center shrink-0 box-border leading-none appearance-none"
-                                title="Edit Book"
+                                :title="t('edit_book')"
                             >
                                 <svg class="h-3.5 w-3.5 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -606,7 +610,7 @@ const deleteBook = () => {
                                 type="button"
                                 @click="openShareModal"
                                 class="w-8 h-8 min-w-[32px] min-h-[32px] max-w-[32px] max-h-[32px] p-0 m-0 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white backdrop-blur-md border border-indigo-400/30 transition-all cursor-pointer shadow-md hover:scale-105 inline-flex items-center justify-center shrink-0 box-border leading-none appearance-none"
-                                title="Share Book Access"
+                                :title="t('share_book')"
                             >
                                 <svg class="h-3.5 w-3.5 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -616,7 +620,7 @@ const deleteBook = () => {
                                 type="button"
                                 @click="confirmDeleteBook"
                                 class="w-8 h-8 min-w-[32px] min-h-[32px] max-w-[32px] max-h-[32px] p-0 m-0 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white backdrop-blur-md border border-rose-400/30 transition-all cursor-pointer shadow-md hover:scale-105 inline-flex items-center justify-center shrink-0 box-border leading-none appearance-none"
-                                title="Delete Book"
+                                :title="t('delete_book')"
                             >
                                 <svg class="h-3.5 w-3.5 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -625,13 +629,13 @@ const deleteBook = () => {
                         </div>
 
                         <!-- File Type Badge -->
-                        <span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-black/70 text-white backdrop-blur-sm z-20">
+                        <span class="absolute bottom-2.5 end-2.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-black/70 text-white backdrop-blur-sm z-20">
                             {{ props.book.file_type }}
                         </span>
                     </div>
 
                     <!-- Details -->
-                    <div class="flex-1 flex flex-col justify-between self-stretch min-w-0">
+                    <div class="flex-1 flex flex-col justify-between self-stretch min-w-0 text-start">
                         <div>
                             <div class="flex flex-wrap items-center gap-2.5 mb-2.5">
                                 <span
@@ -656,9 +660,9 @@ const deleteBook = () => {
                                 {{ props.book.title }}
                             </h1>
                             <p class="text-sm sm:text-base text-slate-500 mt-1 font-medium">
-                                {{ props.book.author || 'Unknown Author' }}
-                                <span class="inline-flex items-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold ml-2.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-md border border-indigo-200/40 dark:border-indigo-800/40">
-                                    {{ props.book.is_creator ? 'Created by You' : 'Shared by ' + props.book.creator_name }}
+                                {{ props.book.author || '—' }}
+                                <span class="inline-flex items-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold ms-2.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-md border border-indigo-200/40 dark:border-indigo-800/40">
+                                    {{ props.book.is_creator ? t('created_by_you') : t('shared_by_user', { name: props.book.creator_name }) }}
                                 </span>
                             </p>
                         </div>
@@ -666,18 +670,18 @@ const deleteBook = () => {
                         <!-- Progress form & actions -->
                         <div class="mt-6 border-t border-slate-100 dark:border-slate-800 pt-5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-5">
                             <!-- Status Selector -->
-                            <div class="flex flex-col">
-                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Status</label>
+                            <div class="flex flex-col text-start">
+                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">{{ t('status') }}</label>
                                 <select
                                     v-model="progressForm.reading_status"
                                     @change="submitProgress"
                                     class="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 cursor-pointer transition-colors"
                                     :disabled="progressForm.processing"
                                 >
-                                    <option value="planned_for_future" class="bg-white dark:bg-slate-900">To Read</option>
-                                    <option value="currently_reading" class="bg-white dark:bg-slate-900">Reading</option>
-                                    <option value="done" class="bg-white dark:bg-slate-900">Completed</option>
-                                    <option value="abandoned" class="bg-white dark:bg-slate-900">Abandoned</option>
+                                    <option value="planned_for_future" class="bg-white dark:bg-slate-900">{{ t('status_unread') }}</option>
+                                    <option value="currently_reading" class="bg-white dark:bg-slate-900">{{ t('status_reading') }}</option>
+                                    <option value="done" class="bg-white dark:bg-slate-900">{{ t('status_completed') }}</option>
+                                    <option value="abandoned" class="bg-white dark:bg-slate-900">{{ t('status_all') }}</option>
                                 </select>
                             </div>
 
@@ -688,11 +692,11 @@ const deleteBook = () => {
                                     @click="handleContinueReading"
                                     class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-600/20 hover:shadow-teal-600/30 transition-all duration-200 cursor-pointer"
                                 >
-                                    <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <svg class="h-4 w-4 me-1.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Continue Reading
+                                    {{ t('continue_reading') }}
                                 </button>
 
                                 <Link
@@ -700,10 +704,10 @@ const deleteBook = () => {
                                     :href="'/books/' + props.book.id + '/summaries'"
                                     class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-orange-600/20 hover:shadow-orange-600/30 transition-all duration-200 cursor-pointer"
                                 >
-                                    <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <svg class="h-4 w-4 me-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                     </svg>
-                                    Read Chats
+                                    {{ t('summaries') }}
                                 </Link>
 
                                 <Link
@@ -711,11 +715,11 @@ const deleteBook = () => {
                                     :href="'/books/' + props.book.id + '/read'"
                                     class="inline-flex items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm transition-all duration-200 cursor-pointer"
                                 >
-                                    <svg class="h-4 w-4 mr-1.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <svg class="h-4 w-4 me-1.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
-                                    PDF Reader
+                                    {{ t('pdf_reader') }}
                                 </Link>
                             </div>
                         </div>
@@ -727,19 +731,19 @@ const deleteBook = () => {
             <div class="flex flex-col gap-8 animate-fade-in">
                 <!-- Book Summaries List Card -->
                 <div class="order-2 lg:order-1 rounded-3xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-900/40 p-6 shadow">
-                        <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4 gap-4">
+                        <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4 gap-4 text-start">
                             <div>
                                 <h2 class="font-black text-xl text-slate-900 dark:text-white flex items-center gap-2">
                                     <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
-                                    Chats
+                                    {{ t('summaries') }}
                                 </h2>
-                                <p class="text-xs text-slate-500 mt-1">Select and read AI-generated chats of the book</p>
+                                <p class="text-xs text-slate-500 mt-1">{{ t('summaries_index_subtitle') }}</p>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="text-xs px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-655 dark:text-slate-400 font-extrabold rounded-lg">
-                                    {{ filteredSummaries.length }} / {{ props.summaries.length }} Total
+                                    {{ t('total_count', { count: filteredSummaries.length, total: props.summaries.length }) }}
                                 </span>
                             </div>
                         </div>
@@ -747,7 +751,7 @@ const deleteBook = () => {
                         <!-- Search and Sorting Controls -->
                         <div class="flex flex-col sm:flex-row gap-3 mb-6">
                             <div class="flex-1 relative">
-                                <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+                                <span class="absolute inset-y-0 start-3 flex items-center text-slate-400 pointer-events-none">
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
@@ -755,8 +759,8 @@ const deleteBook = () => {
                                 <input
                                     type="text"
                                     v-model="summarySearchQuery"
-                                    placeholder="Search chats by content, section, or pages..."
-                                    class="w-full pl-9 pr-4 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800/80 focus:outline-none focus:border-violet-500 transition-colors"
+                                    :placeholder="t('search_chats_placeholder')"
+                                    class="w-full ps-9 pe-4 py-2 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-205 dark:border-slate-800/80 focus:outline-none focus:border-violet-500 transition-colors text-start"
                                 />
                             </div>
                             <div class="flex items-center border border-slate-205 dark:border-slate-800/80 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 text-xs font-bold p-0.5 shrink-0">
@@ -765,14 +769,14 @@ const deleteBook = () => {
                                     class="px-3 py-1.5 rounded-lg uppercase tracking-wider text-[10px] transition-all cursor-pointer"
                                     :class="summarySortBy === 'newest' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
                                 >
-                                    Newest
+                                    {{ t('newest') }}
                                 </button>
                                 <button
                                     @click="summarySortBy = 'pages'"
                                     class="px-3 py-1.5 rounded-lg uppercase tracking-wider text-[10px] transition-all cursor-pointer"
                                     :class="summarySortBy === 'pages' ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm' : 'text-slate-550'"
                                 >
-                                    By Page
+                                    {{ t('by_page') }}
                                 </button>
                             </div>
                         </div>
@@ -782,7 +786,7 @@ const deleteBook = () => {
                             <div
                                 v-for="summary in filteredSummaries"
                                 :key="summary.id"
-                                class="group relative rounded-2xl border border-slate-150 hover:border-violet-500/40 dark:border-slate-800/80 dark:hover:border-violet-500/40 bg-white/50 dark:bg-slate-900/10 hover:bg-violet-50/5 dark:hover:bg-violet-950/5 p-5 transition-all duration-200 flex flex-col justify-between hover:shadow-md cursor-pointer"
+                                class="group relative rounded-2xl border border-slate-150 hover:border-violet-500/40 dark:border-slate-800/80 dark:hover:border-violet-500/40 bg-white/50 dark:bg-slate-900/10 hover:bg-violet-50/5 dark:hover:bg-violet-950/5 p-5 transition-all duration-200 flex flex-col justify-between hover:shadow-md cursor-pointer text-start"
                                 @click="router.visit('/books/' + props.book.id + '/summaries/' + summary.id)"
                             >
                                 <div>
@@ -793,7 +797,7 @@ const deleteBook = () => {
                                                 <svg class="h-4 w-4 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                                 </svg>
-                                                {{ summary.section_title || 'Section' }}
+                                                {{ summary.section_title || t('ai_summary') }}
                                             </span>
                                             <span v-if="summary.target_pages && summary.target_pages.length > 0" class="text-xs text-violet-600 dark:text-violet-400 font-semibold mt-1">
                                                 {{ formatPages(summary.target_pages) }}
@@ -803,7 +807,11 @@ const deleteBook = () => {
                                     </div>
 
                                     <!-- Excerpt from generated summary -->
-                                    <div class="text-xs text-slate-655 dark:text-slate-400 line-clamp-4 leading-relaxed mb-4 overflow-hidden">
+                                    <div
+                                        class="text-xs text-slate-655 dark:text-slate-400 line-clamp-4 leading-relaxed mb-4 overflow-hidden"
+                                        :dir="detectDirection(summary.generated_summary)"
+                                        :class="detectDirection(summary.generated_summary) === 'rtl' ? 'text-right' : 'text-left'"
+                                    >
                                         {{ summary.generated_summary.replace(/[#*`_-]/g, '').slice(0, 200) }}...
                                     </div>
                                 </div>
@@ -818,8 +826,8 @@ const deleteBook = () => {
                                         @click.stop
                                         class="inline-flex items-center text-xs font-bold text-violet-600 dark:text-violet-400 group-hover:text-violet-750 dark:group-hover:text-violet-300 transition-colors"
                                     >
-                                        Read Full
-                                        <svg class="h-3.5 w-3.5 ml-1 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        {{ t('read_summary') }}
+                                        <svg class="h-3.5 w-3.5 ms-1 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                                         </svg>
                                     </Link>
@@ -832,20 +840,20 @@ const deleteBook = () => {
                             <svg class="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">No Chats Found</h3>
+                            <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{{ t('no_summaries') }}</h3>
                             <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                                {{ props.summaries.length > 0 ? "Adjust your search filters to find chats." : "Start by generating an AI summary of a section from Table of Contents or while reading." }}
+                                {{ props.summaries.length > 0 ? t('try_adjusting_filters') : t('generate_first_summary') }}
                             </p>
                         </div>
                     </div>
 
                     <!-- Book Sections / Chapters Table of Contents -->
-                    <div class="order-1 lg:order-2 w-full py-2">
+                    <div class="order-1 lg:order-2 w-full py-2 text-start">
                         <h2 class="font-bold text-base text-slate-900 dark:text-white mb-4 flex items-center gap-2 px-1">
                             <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
                             </svg>
-                            Table of Contents
+                            {{ t('table_of_contents') }}
                         </h2>
 
                         <div v-if="visibleSections.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -853,9 +861,9 @@ const deleteBook = () => {
                                 v-for="sec in visibleSections"
                                 :key="sec.id"
                                 class="py-3 flex items-center justify-between group hover:bg-slate-100/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-all duration-150"
-                                :style="{ paddingLeft: sec.level && sec.level > 1 ? `${(sec.level - 1) * 14}px` : '4px' }"
+                                :style="isRtl ? { paddingRight: sec.level && sec.level > 1 ? `${(sec.level - 1) * 14}px` : '4px' } : { paddingLeft: sec.level && sec.level > 1 ? `${(sec.level - 1) * 14}px` : '4px' }"
                             >
-                                <div class="flex items-center gap-2 flex-1 min-w-0 pr-3">
+                                <div class="flex items-center gap-2 flex-1 min-w-0 pe-3">
                                     <!-- Expand / Collapse Toggle -->
                                     <button
                                         v-if="sec.hasChildren"
@@ -863,8 +871,8 @@ const deleteBook = () => {
                                         class="flex items-center justify-center h-6 w-6 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-500/10 transition-all cursor-pointer shrink-0"
                                     >
                                         <svg
-                                            class="h-3.5 w-3.5 transform transition-transform duration-200"
-                                            :class="{ 'rotate-90': expandedSections[sec.id] }"
+                                            class="h-3.5 w-3.5 transform transition-transform duration-200 rtl:rotate-180"
+                                            :class="{ 'rotate-90 rtl:rotate-90': expandedSections[sec.id] }"
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -883,7 +891,7 @@ const deleteBook = () => {
                                         @dblclick="openSectionModal(sec)"
                                         class="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors select-none font-medium min-w-0 flex-1 cursor-pointer leading-snug"
                                         :class="{ 'font-extrabold text-sm text-slate-900 dark:text-white': (sec.level || 1) === 1, 'text-emerald-700 dark:text-emerald-400': sec.is_read }"
-                                        title="Click to view chat, double-click for details"
+                                        :title="t('section_click_hint')"
                                     >
                                         {{ sec.title }}
                                     </span>
@@ -894,7 +902,7 @@ const deleteBook = () => {
                                         v-if="props.book.file_type === 'pdf' || props.book.file_type === 'epub'"
                                         @click.stop="summarizeSection(sec)"
                                         class="p-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-all cursor-pointer shadow-sm hover:scale-105 flex items-center justify-center shrink-0"
-                                        title="Summarize Section"
+                                        :title="t('generate_summary')"
                                     >
                                         <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -908,7 +916,7 @@ const deleteBook = () => {
                                         :class="sec.is_read 
                                             ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20' 
                                             : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/30'"
-                                        :title="sec.is_read ? 'Mark as Unread' : 'Mark as Read'"
+                                        :title="sec.is_read ? t('mark_unread') : t('mark_read')"
                                     >
                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -918,19 +926,17 @@ const deleteBook = () => {
                             </div>
                         </div>
                         <div v-else class="text-center py-8 text-xs text-slate-400 dark:text-slate-600">
-                            No table of contents available for this book.
+                            {{ t('no_toc_available') }}
                         </div>
                     </div>
             </div>
-        </main>
-
-        <!-- Predefined Prompts Summarize Modal -->
+        </main>        <!-- Predefined Prompts Summarize Modal -->
         <div v-if="isSummarizeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <!-- Modal Backdrop with blur -->
             <div class="absolute inset-0 bg-slate-900/60 dark:bg-slate-955/80 backdrop-blur-sm transition-all" @click="isSummarizeModalOpen = false"></div>
             
             <!-- Modal Container -->
-            <div class="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden relative z-10 transition-all flex flex-col max-h-[85vh] animate-scale-in animate-fade-in">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden relative z-10 transition-all flex flex-col max-h-[85vh] animate-scale-in animate-fade-in text-start">
                 <!-- Modal Header with gradient style -->
                 <div class="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between shadow-md">
                     <div>
@@ -938,10 +944,10 @@ const deleteBook = () => {
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
-                            Generate AI Summary
+                            {{ t('generate_summary') }}
                         </h3>
-                        <p v-if="props.book.file_type === 'pdf'" class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Pages {{ rangeStartPage }} to {{ rangeEndPage }} ({{ rangeEndPage - rangeStartPage + 1 }} pages selected)</p>
-                        <p v-else class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Section: {{ selectedSectionTitle }}</p>
+                        <p v-if="props.book.file_type === 'pdf'" class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">Pages {{ rangeStartPage }} to {{ rangeEndPage }} ({{ rangeEndPage - rangeStartPage + 1 }} {{ t('pages') }})</p>
+                        <p v-else class="text-[10px] text-violet-200 font-medium tracking-wider uppercase mt-0.5">{{ t('section_label', { title: selectedSectionTitle }) }}</p>
                     </div>
                     <button @click="isSummarizeModalOpen = false" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1 transition-all cursor-pointer">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -953,7 +959,7 @@ const deleteBook = () => {
                 <!-- Modal Content -->
                 <div class="p-6 overflow-y-auto space-y-4">
                     <div>
-                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">Select Predefined Style</label>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">{{ t('select_predefined_style') }}</label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div 
                                 v-for="item in predefinedPrompts" 
@@ -982,14 +988,13 @@ const deleteBook = () => {
                     </div>
                     
                     <div>
-                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">Prompt Preview & Editor</label>
+                        <label class="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-wider block mb-2">{{ t('prompt_preview_editor') }}</label>
                         <textarea
                             v-model="selectedPredefinedPrompt"
                             rows="4"
-                            class="w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-mono text-slate-600 dark:text-slate-300 resize-none leading-relaxed"
-                            placeholder="Select a style or write a custom summarization prompt..."
+                            class="w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-mono text-slate-600 dark:text-slate-300 resize-none leading-relaxed text-start"
                         ></textarea>
-                        <p class="text-[9px] text-slate-455 mt-1">Note: Output will be formatted as clean, structured Markdown text.</p>
+                        <p class="text-[9px] text-slate-455 mt-1">{{ t('prompt_preview_note') }}</p>
                     </div>
                 </div>
                 
@@ -1000,7 +1005,7 @@ const deleteBook = () => {
                         :disabled="isSubmittingSummary"
                         class="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-655 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
                     >
-                        Cancel
+                        {{ t('cancel') }}
                     </button>
                     <button 
                         @click="submitSummaryRequest"
@@ -1011,7 +1016,7 @@ const deleteBook = () => {
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>{{ isSubmittingSummary ? 'Generating Summary...' : 'Generate Summary' }}</span>
+                        <span>{{ isSubmittingSummary ? t('generating_summary') : t('generate_summary') }}</span>
                     </button>
                 </div>
             </div>
@@ -1023,10 +1028,10 @@ const deleteBook = () => {
         <!-- Delete Confirmation Modal -->
         <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
             <!-- Overlay -->
-            <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" @click="isDeleteModalOpen = false"></div>
+            <div class="fixed inset-0 bg-slate-955/60 backdrop-blur-sm transition-opacity" @click="isDeleteModalOpen = false"></div>
 
             <!-- Modal Content -->
-            <div class="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 text-left shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div class="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 text-start shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200">
                 <div class="flex items-start gap-4">
                     <div class="h-10 w-10 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1034,9 +1039,9 @@ const deleteBook = () => {
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Delete Book?</h3>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">{{ t('confirm_delete_title') }}</h3>
                         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Are you sure you want to delete <strong class="font-semibold text-slate-800 dark:text-slate-200">"{{ props.book.title }}"</strong>? This will permanently delete the book file, all generated AI summaries, and chat history. This action cannot be undone.
+                            {{ t('confirm_delete_book_text', { title: props.book.title }) }}
                         </p>
                     </div>
                 </div>
@@ -1047,18 +1052,18 @@ const deleteBook = () => {
                         :disabled="isDeleting"
                         class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all duration-200 cursor-pointer"
                     >
-                        Cancel
+                        {{ t('cancel') }}
                     </button>
                     <button
                         @click="deleteBook"
                         :disabled="isDeleting"
                         class="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all duration-200 shadow-lg shadow-rose-600/20 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
-                        <svg v-if="isDeleting" class="animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                        <svg v-if="isDeleting" class="animate-spin -ms-1 me-2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {{ isDeleting ? 'Deleting...' : 'Delete Book' }}
+                        {{ isDeleting ? t('deleting') : t('delete_book') }}
                     </button>
                 </div>
             </div>
@@ -1075,7 +1080,7 @@ const deleteBook = () => {
         leave-to-class="opacity-0"
     >
         <div v-if="activeSectionModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @click.self="closeSectionModal">
-            <div class="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+            <div class="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 text-start">
                 <!-- Modal Header -->
                 <div class="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800/80 gap-3">
                     <div class="flex items-center gap-2.5">
@@ -1085,8 +1090,8 @@ const deleteBook = () => {
                             </svg>
                         </div>
                         <div>
-                            <h3 class="font-black text-lg text-slate-900 dark:text-white">Section Details</h3>
-                            <p class="text-xs text-slate-500">View section information and management options</p>
+                            <h3 class="font-black text-lg text-slate-900 dark:text-white">{{ t('section_details') }}</h3>
+                            <p class="text-xs text-slate-500">{{ t('section_details_desc') }}</p>
                         </div>
                     </div>
                     <button
@@ -1103,7 +1108,7 @@ const deleteBook = () => {
                 <div class="py-5 space-y-4">
                     <!-- Full Title Section -->
                     <div>
-                        <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Full Section Title</label>
+                        <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">{{ t('full_section_title') }}</label>
                         <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-150 dark:border-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 leading-relaxed max-h-48 overflow-y-auto break-words select-text">
                             {{ activeSectionModal.title }}
                         </div>
@@ -1112,15 +1117,15 @@ const deleteBook = () => {
                     <!-- Section Metadata (Page Range & Read Status) -->
                     <div class="grid grid-cols-2 gap-3">
                         <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-150 dark:border-slate-800 flex flex-col">
-                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Page Range</span>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('page_range') }}</span>
                             <span class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1">
-                                {{ activeSectionModal.start_page ? `p. ${activeSectionModal.start_page} - ${activeSectionModal.end_page || activeSectionModal.start_page}` : 'No page numbers' }}
+                                {{ activeSectionModal.start_page ? `p. ${activeSectionModal.start_page} - ${activeSectionModal.end_page || activeSectionModal.start_page}` : t('no_page_numbers') }}
                             </span>
                         </div>
                         <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-150 dark:border-slate-800 flex flex-col">
-                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Status</span>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('status') }}</span>
                             <span class="text-xs font-bold mt-1" :class="activeSectionModal.is_read ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'">
-                                {{ activeSectionModal.is_read ? '✓ Completed / Read' : '○ Waiting / Unread' }}
+                                {{ activeSectionModal.is_read ? '✓ ' + t('status_completed') : '○ ' + t('status_unread') }}
                             </span>
                         </div>
                     </div>
@@ -1133,10 +1138,10 @@ const deleteBook = () => {
                         :disabled="isDeletingSection"
                         class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-extrabold transition-all cursor-pointer shadow-sm"
                     >
-                        <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <svg class="h-4 w-4 me-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        {{ isDeletingSection ? 'Deleting...' : 'Delete Section' }}
+                        {{ isDeletingSection ? t('deleting') : t('delete_section') }}
                     </button>
 
                     <div class="flex items-center gap-2">
@@ -1147,13 +1152,13 @@ const deleteBook = () => {
                                 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                                 : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'"
                         >
-                            {{ activeSectionModal.is_read ? 'Mark Unread' : 'Mark Read' }}
+                            {{ activeSectionModal.is_read ? t('mark_unread') : t('mark_read') }}
                         </button>
                         <button
                             @click="closeSectionModal"
                             class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-extrabold transition-all cursor-pointer"
                         >
-                            Close
+                            {{ t('close') }}
                         </button>
                     </div>
                 </div>
@@ -1164,13 +1169,13 @@ const deleteBook = () => {
     <!-- Share Book Access Modal -->
     <transition name="fade">
         <div v-if="isShareModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in text-start">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                     <h3 class="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                         <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                         </svg>
-                        Share Book Access
+                        {{ t('share_book') }}
                     </h3>
                     <button @click="closeShareModal" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1181,27 +1186,27 @@ const deleteBook = () => {
 
                 <div class="py-4 space-y-4">
                     <p class="text-xs text-slate-500 font-medium leading-relaxed">
-                        Grant access to this book so others can view its details, read summaries, and visit chats.
+                        {{ t('share_access_desc') }}
                     </p>
 
                     <!-- Add User Form -->
                     <form @submit.prevent="submitShare" class="space-y-3">
                         <div>
-                            <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">User Email</label>
+                            <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">{{ t('user_email') }}</label>
                             <div class="flex gap-2">
                                 <input
                                     type="email"
                                     v-model="shareForm.email"
-                                    placeholder="Enter user email..."
+                                    :placeholder="t('enter_user_email')"
                                     required
-                                    class="flex-1 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                    class="flex-1 px-3.5 py-2 text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 text-start"
                                 />
                                 <button
                                     type="submit"
                                     :disabled="shareForm.processing"
                                     class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
                                 >
-                                    {{ shareForm.processing ? 'Sharing...' : 'Share' }}
+                                    {{ shareForm.processing ? t('sharing') : t('share') }}
                                 </button>
                             </div>
                             <span v-if="shareForm.errors.email" class="text-xs text-rose-500 mt-1 block font-medium">
@@ -1212,7 +1217,7 @@ const deleteBook = () => {
 
                     <!-- Shared Users List -->
                     <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Users with Access</label>
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">{{ t('users_with_access') }}</label>
                         <div v-if="props.book.shared_users && props.book.shared_users.length > 0" class="space-y-2 max-h-48 overflow-y-auto">
                             <div
                                 v-for="user in props.book.shared_users"
@@ -1227,11 +1232,11 @@ const deleteBook = () => {
                                     @click="revokeAccess(user.id)"
                                     class="px-2.5 py-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer"
                                 >
-                                    Revoke
+                                    {{ t('revoke') }}
                                 </button>
                             </div>
                         </div>
-                        <p v-else class="text-xs text-slate-400 italic">No users have been given access yet.</p>
+                        <p v-else class="text-xs text-slate-400 italic">{{ t('no_users_shared') }}</p>
                     </div>
                 </div>
 
@@ -1240,7 +1245,7 @@ const deleteBook = () => {
                         @click="closeShareModal"
                         class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-extrabold transition-all cursor-pointer"
                     >
-                        Done
+                        {{ t('done') }}
                     </button>
                 </div>
             </div>

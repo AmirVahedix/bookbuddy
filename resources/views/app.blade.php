@@ -15,10 +15,18 @@
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
         <link rel="manifest" href="/manifest.json">
 
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+
         <title inertia>{{ config('app.name', 'BookBuddy') }}</title>
 
         <script>
             (function() {
+                const savedLocale = localStorage.getItem('locale') || 'fa';
+                document.documentElement.lang = savedLocale;
+                document.documentElement.dir = savedLocale === 'fa' ? 'rtl' : 'ltr';
+
                 localStorage.removeItem('theme');
                 const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
                 function updateTheme() {

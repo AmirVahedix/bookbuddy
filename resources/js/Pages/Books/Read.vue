@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, shallowRef, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
+import { useI18n } from '../../composables/useI18n';
 import { renderMarkdown } from '../../utils/markdown.js';
 
 const props = defineProps({
@@ -21,6 +22,8 @@ const props = defineProps({
         default: () => [],
     },
 });
+
+const { t, isRtl } = useI18n();
 
 const isDarkMode = ref(false);
 const isNightReading = ref(false); // Inverts PDF canvas colors for reading in dark environments
